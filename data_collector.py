@@ -7,16 +7,14 @@ import team_schedule_collector as schedule
 import os
 
 
-# Nikola Jokić
-#career = playercareerstats.PlayerCareerStats(player_id='203999')
-# pandas data frames (optional: pip install pandas)
-#career.get_data_frames()[0].to_csv("data/careerStats/Nikola Jokic.csv")
-#print(pData.find_player_by_id("203999"))
-#print(tData.find_teams_by_nickname("Suns"))
-#teamData = schedule.TeamGameLog("1610612756", "2022")
-#teamData.get_data_frames()[0].to_csv(os.getcwd() + "/data/games/2023/Suns/games.csv")
+def folder_setup():
+    """
+    Makes sure that folders used in program are set up
 
-#print(teamData.get_data_frames()[0].to_csv("data/games/2023/Clippers/games.csv"))
+    :return: Does not return anything
+    """
+    folder_check(os.getcwd() + "/data")  # Check we have a /games/year folder
+    folder_check(os.getcwd() + "/data/games/")  # Check we have a /games/year folder
 
 
 def folder_check(directory):
@@ -74,6 +72,7 @@ def save_all_team_schedule(year):
 
 
 def main():
+    folder_setup()
     save_all_team_schedule("2022")
     save_game_data("0022300791")
 

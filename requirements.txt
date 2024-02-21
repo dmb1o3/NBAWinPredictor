@@ -1,0 +1,2 @@
+nba_api
+urllib3==1.26.6
