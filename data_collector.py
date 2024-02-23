@@ -3,7 +3,6 @@
 import team_data as tData
 import leauge_data as lData
 import boxscore_data as bData
-import team_schedule_collector as schedule
 import os
 
 
@@ -29,38 +28,42 @@ def folder_check(directory):
         os.mkdir(directory)
 
 
-def save_team_schedule(team_nickname, year):
+def get_game_data(game_id):
+    box_score_data = bData.BoxScoreTraditionalV2(game_id=game_id)
+    box_score_data = box_score_data.get_data_frames()[0][["TEAM_ABBREVIATION", "PLAYER_ID", "PLAYER_NAME", "MIN"]]
+    # Minutes are stored with seconds. 35 minutes 30 seconds is 35.0000:30
+    # The line below removes everything after the period
+    box_score_data["MIN"] = box_score_data["MIN"].str.split(".").str[0]
+    box_score_data = box_score_data.fillna(0)  # Data uses none instead of 0
+    # Edit min to remove extra data
+    return box_score_data
+
+
+def save_all_game_data(year, schedule):
     """
-    Will save the schedule of a team based on a given team_id for a given year. Will save the data to
-    ...\\data\\games\\year\\teamName. The data that we will save is game_ID,
+    Given a schedule will save the data for that game into .../data/games/year/
 
-    :param team_nickname: ID of team you want schedule for. ID is from nba site and can be found by using
-    :param year: String containing the year we want schedule of. If we want 2023/2024 season use string "2023"
-    :return: Does not return anything
-     """
-    # @TODO MAKE CHECK TO SEE IF WE ALREADY HAVE DATA
-    folder_check(os.getcwd() + "/data/games/" + year)  # Check to see if we have year as a folder
-    folder_check(os.getcwd() + "/data/games/" + year + "/" + team_nickname)  # Check to see if we have team in year
-    team_id = tData.find_teams_by_nickname(team_nickname)[0]['id']  # Has info on team. We just take ID
-    team_data = schedule.TeamGameLog(team_id, year)
-    team_data.get_data_frames()[0].to_csv(os.getcwd() + "/data/games/" + year + "/" + team_nickname + "/games.csv")
-    return 0
-
-
-def save_game_data(game_id):
-    boxscore_data = bData.BoxScoreAdvancedV2(game_id=game_id)
-    boxscore_data.get_data_frames()[0].to_csv("Box.csv")
-    return
+    :param schedule: Schedule of NBA games. Expecting a dataframe with two rows. One of game ids and another of matchups
+    :param year: year of schedule
+    :return:
+    """
+    for index, row in schedule.iterrows():
+        print(f"Name: {row['GAME_ID']}, Age: {row['MATCHUP']}")
+        # Get game data
+        game_data = get_game_data(row['GAME_ID'])
+        folder_check(os.getcwd() + "/data/games/" + year + "/" + row['GAME_ID'])
+        game_data.to_csv(os.getcwd() + "/data/games/" + year + "/" + row['GAME_ID'] + "/minutes.csv")
+        break
 
 
-def save_all_team_schedule(year):
+def save_league_schedule(year):
     """
     Will save the league schedule for all teams for the given year. Will save the csv to
     .../data/games/year/games.csv. Saves the GAME_ID and MATCHUP. We need GAME_ID but could get rid of MATCHUP
     keeping it for now for readability
 
     :param year: String containing the year we want schedule of
-    :return: Does not return anything
+    :return: dataframe with gameIDs and matchups
     """
     folder_check(os.getcwd() + "/data/games/" + year)  # Check we have a /games/year folder
     league_data = lData.LeagueGameLog(season=year)
@@ -69,12 +72,19 @@ def save_all_team_schedule(year):
     # here we only take matchups with vs. instead of @ meaning we take all home team copies game
     league_data = league_data[league_data["MATCHUP"].str.contains("vs.", na=False)]
     league_data.to_csv(os.getcwd() + "/data/games/" + year + "/schedule.csv")
+    return league_data
+
+
+def save_league_data(year):
+    # Save and get game id for all games played for given year
+    schedule = save_league_schedule(year)
+    # Using game ids save data for each game
+    save_all_game_data(year, schedule)
 
 
 def main():
     folder_setup()
-    save_all_team_schedule("2022")
-    save_game_data("0022300791")
+    save_league_data("2022")
 
 
 if __name__ == "__main__":
