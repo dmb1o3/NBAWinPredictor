@@ -5,6 +5,8 @@ import leauge_data as lData
 import boxscore_data as bData
 import os
 
+# @TODO Think about where we should store who won game for validation later on
+
 
 def folder_setup():
     """
@@ -14,6 +16,7 @@ def folder_setup():
     """
     folder_check(os.getcwd() + "/data")  # Check we have a /games/year folder
     folder_check(os.getcwd() + "/data/games/")  # Check we have a /games/year folder
+    folder_check(os.getcwd() + "/data/careerStats/")  # Check we have a /games/year folder
 
 
 def folder_check(directory):
@@ -51,9 +54,19 @@ def save_all_game_data(year, schedule):
         print(f"Name: {row['GAME_ID']}, Age: {row['MATCHUP']}")
         # Get game data
         game_data = get_game_data(row['GAME_ID'])
-        folder_check(os.getcwd() + "/data/games/" + year + "/" + row['GAME_ID'])
-        game_data.to_csv(os.getcwd() + "/data/games/" + year + "/" + row['GAME_ID'] + "/minutes.csv")
-        break
+        # Split data into home team and away team
+        home_team = row['MATCHUP'][0:3]
+        away_team = row['MATCHUP'][-3:]
+        home_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(home_team)]
+        away_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(away_team)]
+        # Make sure we have folder to save to
+        directory = os.getcwd() + "/data/games/" + year + "/" + row['GAME_ID']
+        folder_check(directory)
+        folder_check(directory + "/" + home_team)
+        folder_check(directory + "/" + away_team)
+        # Save data
+        home_data.to_csv(directory + "/" + home_team + "/minutes.csv")
+        away_data.to_csv(directory + "/" + away_team + "/minutes.csv")
 
 
 def save_league_schedule(year):
