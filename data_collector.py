@@ -1,10 +1,15 @@
 # This is a file to collect data using an NBA API for a given season
 # Uses tools from this repo https://github.com/swar/nba_api
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 import team_data as tData
 import leauge_data as lData
 import boxscore_data as bData
 import os
 
+num_cores = os.cpu_count()
+gameLock = Lock()  # Locked used to sync threads for saving game data
+gameProcessed = set()  # Locked used to sync threads for saving game data
 # @TODO Think about where we should store who won game for validation later on
 
 
@@ -42,31 +47,38 @@ def get_game_data(game_id):
     return box_score_data
 
 
-def save_all_game_data(year, schedule):
+def thread_save_game_data(year, row):
     """
     Given a schedule will save the data for that game into .../data/games/year/
 
-    :param schedule: Schedule of NBA games. Expecting a dataframe with two rows. One of game ids and another of matchups
-    :param year: year of schedule
+    :param year:
+    :param row:
     :return:
     """
-    for index, row in schedule.iterrows():
-        print(f"Name: {row['GAME_ID']}, Age: {row['MATCHUP']}")
-        # Get game data
-        game_data = get_game_data(row['GAME_ID'])
-        # Split data into home team and away team
-        home_team = row['MATCHUP'][0:3]
-        away_team = row['MATCHUP'][-3:]
-        home_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(home_team)]
-        away_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(away_team)]
-        # Make sure we have folder to save to
-        directory = os.getcwd() + "/data/games/" + year + "/" + row['GAME_ID']
-        folder_check(directory)
-        folder_check(directory + "/" + home_team)
-        folder_check(directory + "/" + away_team)
-        # Save data
-        home_data.to_csv(directory + "/" + home_team + "/minutes.csv")
-        away_data.to_csv(directory + "/" + away_team + "/minutes.csv")
+    # Get data from row tuple
+    game_id = row.GAME_ID
+    matchup = row.MATCHUP
+    # Check to make sure thread is not saving game we already saved
+    with gameLock:
+        if game_id in gameProcessed:
+            return
+        gameProcessed.add(game_id)
+
+    # Get game data
+    game_data = get_game_data(game_id)
+    # Split data into home team and away team
+    home_team = matchup[0:3]
+    away_team = matchup[-3:]
+    home_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(home_team)]
+    away_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(away_team)]
+    # Make sure we have folder to save to
+    directory = os.getcwd() + "/data/games/" + year + "/" + game_id
+    folder_check(directory)
+    folder_check(directory + "/" + home_team)
+    folder_check(directory + "/" + away_team)
+    # Save data
+    home_data.to_csv(directory + "/" + home_team + "/minutes.csv")
+    away_data.to_csv(directory + "/" + away_team + "/minutes.csv")
 
 
 def save_league_schedule(year):
@@ -91,13 +103,28 @@ def save_league_schedule(year):
 def save_league_data(year):
     # Save and get game id for all games played for given year
     schedule = save_league_schedule(year)
-    # Using game ids save data for each game
-    save_all_game_data(year, schedule)
+    # Using schedule save data about players that played and their minutes
+    # for threads use num_cores * 2 as api request and i/o should have some waiting time. Feel free to tweak it
+    with ThreadPoolExecutor(max_workers=num_cores * 2) as executor:
+        executor.map(lambda row: thread_save_game_data(year, row), schedule.itertuples(index=False))
+
+
+def get_all_data(years):
+    """
+    Will get all data need for model to run for the years given.
+
+    :param years: Expected to be a list of strings. Each with a year we want NBA data for
+    :return: Does not return anything
+    """
+    # Save league schedule
+    for year in years:
+        save_league_data(year)
+    # Save career stats for players added
 
 
 def main():
     folder_setup()
-    save_league_data("2022")
+    get_all_data(["2019", "2020"])
 
 
 if __name__ == "__main__":
