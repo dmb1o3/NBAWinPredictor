@@ -1,4 +1,4 @@
-# This file was taken from the following repo
+# This file was stitched together from the following repo
 # https://github.com/swar/nba_api
 
 import re
