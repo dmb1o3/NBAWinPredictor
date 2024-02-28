@@ -1,76 +1,362 @@
-# This file was stitched together from the following repo
-# https://github.com/swar/nba_api
-
-import re
-from nba_api.stats.library.data import players
-from nba_api.stats.library.data import (
-    player_index_id,
-    player_index_full_name,
-    player_index_first_name,
-    player_index_last_name,
-    player_index_is_active,
-)
+from nba_api.stats.endpoints._base import Endpoint
+from nba_api.stats.library.http import NBAStatsHTTP
+from nba_api.stats.library.parameters import PerMode36, LeagueIDNullable
 
 
-def _find_players(regex_pattern, row_id):
-    players_found = []
-    for player in players:
-        if re.search(regex_pattern, str(player[row_id]), flags=re.I):
-            players_found.append(_get_player_dict(player))
-    return players_found
-
-
-def _get_player_dict(player_row):
-    return {
-        "id": player_row[player_index_id],
-        "full_name": player_row[player_index_full_name],
-        "first_name": player_row[player_index_first_name],
-        "last_name": player_row[player_index_last_name],
-        "is_active": player_row[player_index_is_active],
+class PlayerCareerStats(Endpoint):
+    endpoint = "playercareerstats"
+    expected_data = {
+        "CareerTotalsAllStarSeason": [
+            "PLAYER_ID",
+            "LEAGUE_ID",
+            "Team_ID",
+            "GP",
+            "GS",
+            "MIN",
+            "FGM",
+            "FGA",
+            "FG_PCT",
+            "FG3M",
+            "FG3A",
+            "FG3_PCT",
+            "FTM",
+            "FTA",
+            "FT_PCT",
+            "OREB",
+            "DREB",
+            "REB",
+            "AST",
+            "STL",
+            "BLK",
+            "TOV",
+            "PF",
+            "PTS",
+        ],
+        "CareerTotalsCollegeSeason": [
+            "PLAYER_ID",
+            "LEAGUE_ID",
+            "ORGANIZATION_ID",
+            "GP",
+            "GS",
+            "MIN",
+            "FGM",
+            "FGA",
+            "FG_PCT",
+            "FG3M",
+            "FG3A",
+            "FG3_PCT",
+            "FTM",
+            "FTA",
+            "FT_PCT",
+            "OREB",
+            "DREB",
+            "REB",
+            "AST",
+            "STL",
+            "BLK",
+            "TOV",
+            "PF",
+            "PTS",
+        ],
+        "CareerTotalsPostSeason": [
+            "PLAYER_ID",
+            "LEAGUE_ID",
+            "Team_ID",
+            "GP",
+            "GS",
+            "MIN",
+            "FGM",
+            "FGA",
+            "FG_PCT",
+            "FG3M",
+            "FG3A",
+            "FG3_PCT",
+            "FTM",
+            "FTA",
+            "FT_PCT",
+            "OREB",
+            "DREB",
+            "REB",
+            "AST",
+            "STL",
+            "BLK",
+            "TOV",
+            "PF",
+            "PTS",
+        ],
+        "CareerTotalsRegularSeason": [
+            "PLAYER_ID",
+            "LEAGUE_ID",
+            "Team_ID",
+            "GP",
+            "GS",
+            "MIN",
+            "FGM",
+            "FGA",
+            "FG_PCT",
+            "FG3M",
+            "FG3A",
+            "FG3_PCT",
+            "FTM",
+            "FTA",
+            "FT_PCT",
+            "OREB",
+            "DREB",
+            "REB",
+            "AST",
+            "STL",
+            "BLK",
+            "TOV",
+            "PF",
+            "PTS",
+        ],
+        "SeasonRankingsPostSeason": [
+            "PLAYER_ID",
+            "SEASON_ID",
+            "LEAGUE_ID",
+            "TEAM_ID",
+            "TEAM_ABBREVIATION",
+            "PLAYER_AGE",
+            "GP",
+            "GS",
+            "RANK_MIN",
+            "RANK_FGM",
+            "RANK_FGA",
+            "RANK_FG_PCT",
+            "RANK_FG3M",
+            "RANK_FG3A",
+            "RANK_FG3_PCT",
+            "RANK_FTM",
+            "RANK_FTA",
+            "RANK_FT_PCT",
+            "RANK_OREB",
+            "RANK_DREB",
+            "RANK_REB",
+            "RANK_AST",
+            "RANK_STL",
+            "RANK_BLK",
+            "RANK_TOV",
+            "RANK_PTS",
+            "RANK_EFF",
+        ],
+        "SeasonRankingsRegularSeason": [
+            "PLAYER_ID",
+            "SEASON_ID",
+            "LEAGUE_ID",
+            "TEAM_ID",
+            "TEAM_ABBREVIATION",
+            "PLAYER_AGE",
+            "GP",
+            "GS",
+            "RANK_MIN",
+            "RANK_FGM",
+            "RANK_FGA",
+            "RANK_FG_PCT",
+            "RANK_FG3M",
+            "RANK_FG3A",
+            "RANK_FG3_PCT",
+            "RANK_FTM",
+            "RANK_FTA",
+            "RANK_FT_PCT",
+            "RANK_OREB",
+            "RANK_DREB",
+            "RANK_REB",
+            "RANK_AST",
+            "RANK_STL",
+            "RANK_BLK",
+            "RANK_TOV",
+            "RANK_PTS",
+            "RANK_EFF",
+        ],
+        "SeasonTotalsAllStarSeason": [
+            "PLAYER_ID",
+            "SEASON_ID",
+            "LEAGUE_ID",
+            "TEAM_ID",
+            "TEAM_ABBREVIATION",
+            "PLAYER_AGE",
+            "GP",
+            "GS",
+            "MIN",
+            "FGM",
+            "FGA",
+            "FG_PCT",
+            "FG3M",
+            "FG3A",
+            "FG3_PCT",
+            "FTM",
+            "FTA",
+            "FT_PCT",
+            "OREB",
+            "DREB",
+            "REB",
+            "AST",
+            "STL",
+            "BLK",
+            "TOV",
+            "PF",
+            "PTS",
+        ],
+        "SeasonTotalsCollegeSeason": [
+            "PLAYER_ID",
+            "SEASON_ID",
+            "LEAGUE_ID",
+            "ORGANIZATION_ID",
+            "SCHOOL_NAME",
+            "PLAYER_AGE",
+            "GP",
+            "GS",
+            "MIN",
+            "FGM",
+            "FGA",
+            "FG_PCT",
+            "FG3M",
+            "FG3A",
+            "FG3_PCT",
+            "FTM",
+            "FTA",
+            "FT_PCT",
+            "OREB",
+            "DREB",
+            "REB",
+            "AST",
+            "STL",
+            "BLK",
+            "TOV",
+            "PF",
+            "PTS",
+        ],
+        "SeasonTotalsPostSeason": [
+            "PLAYER_ID",
+            "SEASON_ID",
+            "LEAGUE_ID",
+            "TEAM_ID",
+            "TEAM_ABBREVIATION",
+            "PLAYER_AGE",
+            "GP",
+            "GS",
+            "MIN",
+            "FGM",
+            "FGA",
+            "FG_PCT",
+            "FG3M",
+            "FG3A",
+            "FG3_PCT",
+            "FTM",
+            "FTA",
+            "FT_PCT",
+            "OREB",
+            "DREB",
+            "REB",
+            "AST",
+            "STL",
+            "BLK",
+            "TOV",
+            "PF",
+            "PTS",
+        ],
+        "SeasonTotalsRegularSeason": [
+            "PLAYER_ID",
+            "SEASON_ID",
+            "LEAGUE_ID",
+            "TEAM_ID",
+            "TEAM_ABBREVIATION",
+            "PLAYER_AGE",
+            "GP",
+            "GS",
+            "MIN",
+            "FGM",
+            "FGA",
+            "FG_PCT",
+            "FG3M",
+            "FG3A",
+            "FG3_PCT",
+            "FTM",
+            "FTA",
+            "FT_PCT",
+            "OREB",
+            "DREB",
+            "REB",
+            "AST",
+            "STL",
+            "BLK",
+            "TOV",
+            "PF",
+            "PTS",
+        ],
     }
 
+    nba_response = None
+    data_sets = None
+    player_stats = None
+    team_stats = None
+    headers = None
 
-def find_players_by_full_name(regex_pattern):
-    return _find_players(regex_pattern, player_index_full_name)
+    def __init__(
+        self,
+        player_id,
+        per_mode36=PerMode36.default,
+        league_id_nullable=LeagueIDNullable.default,
+        proxy=None,
+        headers=None,
+        timeout=30,
+        get_request=True,
+    ):
+        self.proxy = proxy
+        if headers is not None:
+            self.headers = headers
+        self.timeout = timeout
+        self.parameters = {
+            "PlayerID": player_id,
+            "PerMode": per_mode36,
+            "LeagueID": league_id_nullable,
+        }
+        if get_request:
+            self.get_request()
 
+    def get_request(self):
+        self.nba_response = NBAStatsHTTP().send_api_request(
+            endpoint=self.endpoint,
+            parameters=self.parameters,
+            proxy=self.proxy,
+            headers=self.headers,
+            timeout=self.timeout,
+        )
+        self.load_response()
 
-def find_players_by_first_name(regex_pattern):
-    return _find_players(regex_pattern, player_index_first_name)
-
-
-def find_players_by_last_name(regex_pattern):
-    return _find_players(regex_pattern, player_index_last_name)
-
-
-def find_player_by_id(player_id):
-    regex_pattern = "^{}$".format(player_id)
-    players_list = _find_players(regex_pattern, player_index_id)
-    if len(players_list) > 1:
-        raise Exception("Found more than 1 id")
-    elif not players_list:
-        return None
-    else:
-        return players_list[0]
-
-
-def get_players():
-    players_list = []
-    for player in players:
-        players_list.append(_get_player_dict(player))
-    return players_list
-
-
-def get_active_players():
-    players_list = []
-    for player in players:
-        if player[player_index_is_active]:
-            players_list.append(_get_player_dict(player))
-    return players_list
-
-
-def get_inactive_players():
-    players_list = []
-    for player in players:
-        if not player[player_index_is_active]:
-            players_list.append(_get_player_dict(player))
-    return players_list
+    def load_response(self):
+        data_sets = self.nba_response.get_data_sets()
+        self.data_sets = [
+            Endpoint.DataSet(data=data_set)
+            for data_set_name, data_set in data_sets.items()
+        ]
+        self.career_totals_all_star_season = Endpoint.DataSet(
+            data=data_sets["CareerTotalsAllStarSeason"]
+        )
+        self.career_totals_college_season = Endpoint.DataSet(
+            data=data_sets["CareerTotalsCollegeSeason"]
+        )
+        self.career_totals_post_season = Endpoint.DataSet(
+            data=data_sets["CareerTotalsPostSeason"]
+        )
+        self.career_totals_regular_season = Endpoint.DataSet(
+            data=data_sets["CareerTotalsRegularSeason"]
+        )
+        self.season_rankings_post_season = Endpoint.DataSet(
+            data=data_sets["SeasonRankingsPostSeason"]
+        )
+        self.season_rankings_regular_season = Endpoint.DataSet(
+            data=data_sets["SeasonRankingsRegularSeason"]
+        )
+        self.season_totals_all_star_season = Endpoint.DataSet(
+            data=data_sets["SeasonTotalsAllStarSeason"]
+        )
+        self.season_totals_college_season = Endpoint.DataSet(
+            data=data_sets["SeasonTotalsCollegeSeason"]
+        )
+        self.season_totals_post_season = Endpoint.DataSet(
+            data=data_sets["SeasonTotalsPostSeason"]
+        )
+        self.season_totals_regular_season = Endpoint.DataSet(
+            data=data_sets["SeasonTotalsRegularSeason"]
+        )

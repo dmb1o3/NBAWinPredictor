@@ -1,2 +1,3 @@
-nba_api
-urllib3==1.26.6
+nba_api~=1.4.1
+urllib3==2.2.1
+pandas~=2.2.1

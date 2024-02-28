@@ -1,9 +1,11 @@
 # This is a file to collect data using an NBA API for a given season
 # Uses tools from this repo https://github.com/swar/nba_api
 from concurrent.futures import ThreadPoolExecutor
+import time
 import pandas as pd
 from threading import Lock
 import team_data as tData
+import player_data as pData
 import leauge_data as lData
 import team_player_dashboard as tpData
 import boxscore_data as bData
@@ -12,8 +14,10 @@ import os
 num_cores = os.cpu_count()
 gameLock = Lock()  # Used to sync threads for saving game data
 gameProcessed = set()  # Used to make sure thread don't process same game multiple time
-teamLock = Lock()  # Used to sync threads for saving data on team_ID
-teamsProcessed = {}  #
+playerLock = Lock()  # Used to sync threads for saving data on team_ID
+playerProcessed = set()  #
+
+
 # @TODO Think about where we should store who won game for validation later on
 
 
@@ -28,16 +32,22 @@ def folder_setup():
     folder_check(os.getcwd() + "/data/careerStats/")
 
 
-def folder_check(directory):
+def folder_check(directory, mkdir=True):
     """
     Given a directory will check to see if it exists. If it does not exist make the directory requested.
 
-    :param directory: Path of directory
-    :return:
+    :param directory: Path of directory we want to check and possibly make
+    :param mkdir: Optional parameter set True if not specified. Controls if function makes directory if it does not
+                  already exist
+    :return: True if folder exist or if folder was made, False if else.
     """
     if not os.path.isdir(directory):
-        # Make directory
-        os.mkdir(directory)
+        # Make directory if needed
+        if mkdir:
+            os.mkdir(directory)
+        return mkdir
+
+    return True
 
 
 def get_game_data(game_id):
@@ -55,19 +65,6 @@ def get_game_data(game_id):
     box_score_data = box_score_data.fillna(0)  # Data uses none instead of 0
     # Edit min to remove extra data
     return box_score_data
-
-
-def save_teams_processed(year):
-    """
-    When called will save data in global set teamsProcessed. This is expected to be called after we have saved the
-    league schedule and saved all players and their minutes played.
-
-    :return: Does not return anything
-    """
-    # Use reset_index to avoid treating dict keys as index. If removed first column will no longer exist
-    df = pd.DataFrame.from_dict(teamsProcessed, orient="index").reset_index()
-    df.columns = ["TEAM_ABBREVIATION", "TEAM_ID"]
-    df.to_csv(os.getcwd() + "/data/games/" + year + "/teams.csv")
 
 
 def thread_save_game_data(year, row):
@@ -93,16 +90,9 @@ def thread_save_game_data(year, row):
     away_team = matchup[-3:]
     home_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(home_team)]
     away_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(away_team)]
-    # Check to see if either home or away team our new team ids
-    home_team_id = str(home_data["TEAM_ID"].iloc[0])
-    home_team_abr = str(home_data["TEAM_ABBREVIATION"].iloc[0])
-    away_team_id = str(away_data["TEAM_ID"].iloc[0])
-    away_team_abr = str(away_data["TEAM_ABBREVIATION"].iloc[0])
-    with teamLock:
-        if home_team_abr not in teamsProcessed:
-            teamsProcessed[home_team_abr] = home_team_id
-        if away_team_abr not in teamsProcessed:
-            teamsProcessed[away_team_abr] = away_team_id
+    # Check player data to see if we need to save any player stats
+    both_team_players = game_data["PLAYER_ID"]
+    save_player_stats(both_team_players)
     # Make sure we have folder to save to
     directory = os.getcwd() + "/data/games/" + year + "/" + game_id
     folder_check(directory)
@@ -135,19 +125,18 @@ def save_league_schedule(year):
 def save_league_data(year):
     # Save and get game id for all games played for given year
     schedule = save_league_schedule(year)
-    # Using schedule save data about players that played and their minutes
-    # for threads use num_cores * 2 as api request and i/o should have some waiting time. Feel free to tweak it
+    # Reset global variable used for gamesProcessed to save RAM in case of multiple years saved per run.
+    # DO NOT need to reset player as we are very likely to save time by keeping playerProcessed for multiple years
+    # and do not need to save a players career stats twice
     global gameProcessed
-    global teamsProcessed
-    gameProcessed = set()  # When doing multiple years want to make sure we clear this
-    teamsProcessed = {}  # When doing multiple years want to make sure we clear this
+    gameProcessed = set()
     # Might want to consider another threading option
     # For debugging does not seem to raise any errors even when there are some that stop function from working
+    # Using schedule save data about players that played and their minutes
     with ThreadPoolExecutor(max_workers=num_cores) as executor:
         executor.map(lambda row: thread_save_game_data(year, row), schedule.itertuples(index=False))
     # After processing all data save the team data
-    print(teamsProcessed)
-    save_teams_processed(year)
+    # teams = save_teams_processed(year)
 
 
 def get_all_data(years):
@@ -159,29 +148,46 @@ def get_all_data(years):
     """
     # Save league schedule
     for year in years:
+        start_time = time.time()
+        print("Saving data for NBA season " + year)
         save_league_data(year)
-    # Save career stats for players added
+        print("Finished saving data took " + str(time.time() - start_time) + " seconds")
+
+
+def save_player_stats(players):
+    directory = os.getcwd() + "/data/careerStats/"
+    for player in players:
+        p = str(player)
+        with playerLock:
+            # If we already have data for player
+            # We can skip to the next loop
+            if p in playerProcessed:
+                continue
+            playerProcessed.add(p)
+
+        player_data = pData.PlayerCareerStats(p)
+        player_data = player_data.get_data_frames()[0]
+        # Choose which stats to keep. Choose not to keep makes for FG, 3P or FT as we should not need and
+        # can calculate using the attempts and pct if we do end up needing it
+        player_data = player_data[["SEASON_ID", "PLAYER_AGE", "GP", "GS", "MIN", "FGA", "FG_PCT", "FG3A", "FG3_PCT",
+                                  "FTA", "FT_PCT", "OREB", "DREB", "REB", "AST", "STL", "BLK", "TOV", "PF", "PTS"]]
+        folder_check(directory + p)
+        player_data.to_csv(directory + p + "/careerRegularSeasonStats.csv")
 
 
 def test():
     year = "2021"
-    schedule = pd.read_csv(os.getcwd() + "/data/games/" + year + "/schedule.csv")
+    schedule = pd.read_csv(os.getcwd() + "/data/games/" + year + "/schedule.csv", dtype={"GAME_ID": "string"})
     global gameProcessed
-    global teamsProcessed
     gameProcessed = set()  # When doing multiple years want to make sure we clear this
-    teamsProcessed = {}  # When doing multiple years want to make sure we clear this
     with ThreadPoolExecutor(max_workers=1) as executor:
         executor.map(lambda row: thread_save_game_data(year, row), schedule.itertuples(index=False))
-
-    save_teams_processed(year)
 
 
 def main():
     folder_setup()
-    #test()
-    get_all_data(["2023"])
-    #t = tpData.TeamPlayerDashboard(team_id="1610612746")
-    #t.get_data_frames()[1].to_csv("1.csv")
+    # test()
+    get_all_data(["2020", "1990"])
 
 
 if __name__ == "__main__":
