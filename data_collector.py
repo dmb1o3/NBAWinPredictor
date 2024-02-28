@@ -3,6 +3,7 @@
 
 import os
 import time
+import numpy as np
 import player_data as p_data
 import leauge_data as l_data
 import boxscore_data as b_data
@@ -41,7 +42,14 @@ def folder_check(directory):
         os.mkdir(directory)
 
 
-def save_player_stats(players):
+def thread_save_player_stats(players):
+    """
+    Expected to be called with threads but not necessary. Will download the career stats of all players given to
+    .../data/careerStats/PLAYER_ID/careerRegularSeasonStats.csv
+
+    :param players: List of players we want career stats for
+    :return: Does not return anything
+    """
     directory = os.getcwd() + "/data/careerStats/"
     for player in players:
         p = str(player)
@@ -116,7 +124,7 @@ def thread_save_game_data(year, row):
     away_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(away_team)]
     # Check player data to see if we need to save any player stats
     both_team_players = game_data["PLAYER_ID"]
-    save_player_stats(both_team_players)
+    thread_save_player_stats(both_team_players)
     # Make sure we have folder to save to
     directory = os.getcwd() + "/data/games/" + year + "/" + game_id
     folder_check(directory)
@@ -139,7 +147,12 @@ def save_league_schedule(year):
     """
     folder_check(os.getcwd() + "/data/games/" + year)  # Check we have a /games/year folder
     league_data = l_data.LeagueGameLog(season=year)
-    league_data = league_data.get_data_frames()[0][["GAME_ID", "MATCHUP"]]
+    league_data = league_data.get_data_frames()[0][["GAME_ID", "MATCHUP", "WL"]]
+    # Figure out who won
+    league_data["WL"] = np.where(league_data["WL"] == "W", league_data["MATCHUP"].str.slice(start=0, stop=3),
+                                 league_data["MATCHUP"].str.slice(start=-3))
+    # Rename column to make it easier to understand
+    league_data = league_data.rename(columns={"WL": "Winner"})
     # Data set contains two instances for a single game one for the home team and one for away team
     # here we only take matchups with vs. instead of @ meaning we take all home team copies game
     league_data = league_data[league_data["MATCHUP"].str.contains("vs.", na=False)]
