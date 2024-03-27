@@ -83,7 +83,7 @@ def get_game_data(game_id):
              given game
     """
     box_score_data = b_data.BoxScoreTraditionalV2(game_id=game_id)
-    box_score_data = box_score_data.get_data_frames()[0][["TEAM_ABBREVIATION", "PLAYER_ID", "PLAYER_NAME", "MIN"]]
+    box_score_data = box_score_data.get_data_frames()[0] #[["TEAM_ABBREVIATION", "PLAYER_ID", "PLAYER_NAME", "MIN"]]
     # Minutes are stored with seconds. 35 minutes 30 seconds is 35.0000:30
     # The line below removes everything after the period
     box_score_data["MIN"] = box_score_data["MIN"].str.split(".").str[0]
@@ -118,6 +118,7 @@ def thread_save_game_data(year, row):
     # Get game data
     game_data = get_game_data(game_id)
     # Split data into home team and away team
+    """
     home_team = matchup[0:3]
     away_team = matchup[-3:]
     home_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(home_team)]
@@ -125,7 +126,13 @@ def thread_save_game_data(year, row):
     # Check player data to see if we need to save any player stats
     both_team_players = game_data["PLAYER_ID"]
     thread_save_player_stats(both_team_players)
+    """
     # Make sure we have folder to save to
+    directory = os.getcwd() + "/data/games/" + year
+    folder_check(directory)
+    # Save game data
+    game_data.to_csv(directory + "/" + game_id + "_stats.csv")
+    """
     directory = os.getcwd() + "/data/games/" + year + "/" + game_id
     folder_check(directory)
     folder_check(directory + "/" + home_team)
@@ -133,6 +140,7 @@ def thread_save_game_data(year, row):
     # Save game data
     home_data.to_csv(directory + "/" + home_team + "/minutes.csv")
     away_data.to_csv(directory + "/" + away_team + "/minutes.csv")
+    """
 
 
 def save_league_schedule(year):
@@ -147,12 +155,15 @@ def save_league_schedule(year):
     """
     folder_check(os.getcwd() + "/data/games/" + year)  # Check we have a /games/year folder
     league_data = l_data.LeagueGameLog(season=year)
-    league_data = league_data.get_data_frames()[0][["GAME_ID", "MATCHUP", "WL"]]
+    league_data = league_data.get_data_frames()[0] [["GAME_ID", "GAME_DATE", "MATCHUP", "WL"]]
+    # Add column for home team
+    league_data["HOME_TEAM"] = league_data["MATCHUP"].str[:3]
+
     # Figure out who won
     league_data["WL"] = np.where(league_data["WL"] == "W", league_data["MATCHUP"].str.slice(start=0, stop=3),
                                  league_data["MATCHUP"].str.slice(start=-3))
     # Rename column to make it easier to understand
-    league_data = league_data.rename(columns={"WL": "Winner"})
+    league_data = league_data.rename(columns={"WL": "WINNER"})
     # Data set contains two instances for a single game one for the home team and one for away team
     # here we only take matchups with vs. instead of @ meaning we take all home team copies game
     league_data = league_data[league_data["MATCHUP"].str.contains("vs.", na=False)]
@@ -200,7 +211,7 @@ def get_all_data(years):
 
 def main():
     folder_setup()
-    get_all_data(["2022"])
+    get_all_data(["2020", "2021"])
 
 
 if __name__ == "__main__":
