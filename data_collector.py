@@ -4,6 +4,7 @@
 import os
 import time
 import numpy as np
+import pandas as pd
 import player_data as p_data
 import leauge_data as l_data
 import boxscore_data as b_data
@@ -12,11 +13,13 @@ from threading import Lock
 from concurrent.futures import ThreadPoolExecutor
 
 # Global Variables
-num_cores = os.cpu_count()  # Used to know how many threads to use
-gameLock = Lock()  # Used to sync threads for saving data to gameProcessed
-gameProcessed = set()  # Saves data about game_ids we processed so threads don't do redundant work
-playerLock = Lock()  # Used to sync threads for saving data on playerProcessed
-playerProcessed = set()  # Saves data about player_ids we processed so threads don't do redundant work
+NUM_CORES = os.cpu_count()  # Used to know how many threads to use
+GAME_LOCK = Lock()  # Used to sync threads for saving data to gameProcessed
+GAME_PROCESSED = set()  # Saves data about game_ids we processed so threads don't do redundant work
+PLAYER_LOCK = Lock()  # Used to sync threads for saving data on playerProcessed
+PLAYER_PROCESSED = set()  # Saves data about player_ids we processed so threads don't do redundant work
+NUM_PLAYER_PER_TEAM = 1  # Number of players per team that we should save stats for
+GAMES_BACK = 10  # Number of games to go back
 
 
 def folder_setup():
@@ -42,32 +45,46 @@ def folder_check(directory):
         os.mkdir(directory)
 
 
-def thread_save_player_stats(players):
-    """
-    Expected to be called with threads but not necessary. Will download the career stats of all players given to
-    .../data/careerStats/PLAYER_ID/careerRegularSeasonStats.csv
+def save_player_stats(schedule):
+    # Get each team of that season
+    teams = schedule.HOME_TEAM.unique()
+    team = "LAC"
+    # For each team get their schedule
+    clips_schedule = schedule[schedule['MATCHUP'].str.contains(team)]
+    # Get team stats
+    clips = thread_save_player_stats(clips_schedule[["GAME_ID", "HOME_TEAM"]].copy(), team)
+    # Drop home team column as schedule already has column
+    clips.drop(columns='HOME_TEAM', inplace=True)
+    # Merge our two dataframes
 
-    :param players: List of players we want career stats for
-    :return: Does not return anything
-    """
-    directory = os.getcwd() + "/data/careerStats/"
-    for player in players:
-        p = str(player)
-        with playerLock:
-            # If we already have data for player
-            # We can skip to the next loop
-            if p in playerProcessed:
-                continue
-            playerProcessed.add(p)
+    result = pd.merge(schedule, clips, on="GAME_ID", how="left")
+    result.to_csv("data/games/2022/test.csv", index=False)
 
-        player_data = p_data.PlayerCareerStats(p)
-        player_data = player_data.get_data_frames()[0]
-        # Choose which stats to keep. Choose not to keep makes for FG, 3P or FT as we should not need and
-        # can calculate using the attempts and pct if we do end up needing it
-        player_data = player_data[["SEASON_ID", "PLAYER_AGE", "GP", "GS", "MIN", "FGA", "FG_PCT", "FG3A", "FG3_PCT",
-                                  "FTA", "FT_PCT", "OREB", "DREB", "REB", "AST", "STL", "BLK", "TOV", "PF", "PTS"]]
-        folder_check(directory + p)
-        player_data.to_csv(directory + p + "/careerRegularSeasonStats.csv")
+
+def thread_save_player_stats(games, team):
+    print(games)
+    games_reviewed = 0
+    home_teams = games["HOME_TEAM"].tolist()
+    # For each game get stats
+    for game in games["GAME_ID"]:
+        # Check to see if we should start saving data
+        if games_reviewed >= GAMES_BACK:
+            # Figure out if team is home or away
+            if home_teams[games_reviewed] == team:
+                # Add data as home team
+                games.loc[games["GAME_ID"] == game, "Player 1"] = "20002213"
+            else:
+                # Add data as away team
+                games.loc[games["GAME_ID"] == game, "OPP_Player 1"] = "20002213"
+
+        # Collect player averages
+
+        # Check if we need to update player ids for new top 10
+
+        # Increment games counter
+        games_reviewed += 1
+
+    return games
 
 
 def get_game_data(game_id):
@@ -111,36 +128,17 @@ def thread_save_game_data(year, row):
     game_id = row.GAME_ID
     matchup = row.MATCHUP
     # Check to make sure thread is not saving game we already saved
-    with gameLock:
-        if game_id in gameProcessed:
+    with GAME_LOCK:
+        if game_id in GAME_PROCESSED:
             return
-        gameProcessed.add(game_id)
+        GAME_PROCESSED.add(game_id)
     # Get game data
     game_data = get_game_data(game_id)
-    # Split data into home team and away team
-    """
-    home_team = matchup[0:3]
-    away_team = matchup[-3:]
-    home_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(home_team)]
-    away_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(away_team)]
-    # Check player data to see if we need to save any player stats
-    both_team_players = game_data["PLAYER_ID"]
-    thread_save_player_stats(both_team_players)
-    """
     # Make sure we have folder to save to
     directory = os.getcwd() + "/data/games/" + year
     folder_check(directory)
     # Save game data
-    game_data.to_csv(directory + "/" + game_id + "_stats.csv")
-    """
-    directory = os.getcwd() + "/data/games/" + year + "/" + game_id
-    folder_check(directory)
-    folder_check(directory + "/" + home_team)
-    folder_check(directory + "/" + away_team)
-    # Save game data
-    home_data.to_csv(directory + "/" + home_team + "/minutes.csv")
-    away_data.to_csv(directory + "/" + away_team + "/minutes.csv")
-    """
+    game_data.to_csv(directory + "/" + game_id + "_stats.csv", index=False)
 
 
 def save_league_schedule(year):
@@ -155,9 +153,11 @@ def save_league_schedule(year):
     """
     folder_check(os.getcwd() + "/data/games/" + year)  # Check we have a /games/year folder
     league_data = l_data.LeagueGameLog(season=year)
-    league_data = league_data.get_data_frames()[0] [["GAME_ID", "GAME_DATE", "MATCHUP", "WL"]]
+    league_data = league_data.get_data_frames()[0][["GAME_ID", "GAME_DATE", "MATCHUP", "TEAM_ID", "WL"]]
     # Add column for home team
     league_data["HOME_TEAM"] = league_data["MATCHUP"].str[:3]
+    # Rename TEAM_ID to HOME_TEAM_ID for more accurate name
+    league_data = league_data.rename(columns={"TEAM_ID": "HOME_TEAM_ID"})
 
     # Figure out who won
     league_data["WL"] = np.where(league_data["WL"] == "W", league_data["MATCHUP"].str.slice(start=0, stop=3),
@@ -167,14 +167,16 @@ def save_league_schedule(year):
     # Data set contains two instances for a single game one for the home team and one for away team
     # here we only take matchups with vs. instead of @ meaning we take all home team copies game
     league_data = league_data[league_data["MATCHUP"].str.contains("vs.", na=False)]
-    league_data.to_csv(os.getcwd() + "/data/games/" + year + "/schedule.csv")
+    league_data.to_csv(os.getcwd() + "/data/games/" + year + "/schedule.csv", index=False)
+
     return league_data
 
 
 def save_league_data(year):
     """
     Saves all data needed for model for given year. Uses save_league_schedule() to get league schedule for given year
-    and then feeds the given dataframe to thread_save_game_data() to process and save.
+    and then feeds the given dataframe to thread_save_game_data() to process and save. After that runs
+    save_player_data() which will go through the game data and get averages going b
 
     :param year: Year we want data for
     :return: Does not return anything
@@ -184,13 +186,18 @@ def save_league_data(year):
     # Reset global variable used for gamesProcessed to save RAM in case of multiple years saved per run.
     # DO NOT need to reset player as we are very likely to save time by keeping playerProcessed for multiple years
     # and do not need to save a players career stats twice
-    global gameProcessed
-    gameProcessed = set()
+    global GAME_PROCESSED
+    GAME_PROCESSED = set()
     # Might want to consider another threading option
     # For debugging does not seem to raise any errors even when there are some that stop function from working
     # Using schedule save data about players that played and their minutes
-    with ThreadPoolExecutor(max_workers=num_cores) as executor:
+    with ThreadPoolExecutor(max_workers=NUM_CORES) as executor:
         executor.map(lambda row: thread_save_game_data(year, row), schedule.itertuples(index=False))
+    # Save players stats
+    save_player_stats(schedule)
+
+    # Using data from the stats we need to append to our schedule data frame
+    game_ids = schedule["GAME_ID"].tolist()
 
 
 def get_all_data(years):
@@ -210,8 +217,10 @@ def get_all_data(years):
 
 
 def main():
+    #save_player_stats(pd.read_csv('data/games/2022/schedule.csv'),)
+    #exit()
     folder_setup()
-    get_all_data(["2020", "2021"])
+    get_all_data(["2022"])
 
 
 if __name__ == "__main__":
