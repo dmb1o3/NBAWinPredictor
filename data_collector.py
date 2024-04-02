@@ -45,44 +45,68 @@ def folder_check(directory):
         os.mkdir(directory)
 
 
-def save_player_stats(schedule):
+def clean_player_stats(player_stats):
+    # Drop player stats that we do not need
+    # Can drop amount of field goals and free throws as we keep percentage made and amount attempted
+    # Can drop rebounds as we keep offensive rebounds and defensive rebounds
+    # TODO Figure out how we want to handle injuries. Read obsidian file Accounting for injury for more details
+    player_stats.drop(columns=['TEAM_ID', 'TEAM_ABBREVIATION', 'TEAM_CITY',
+                               'NICKNAME', 'START_POSITION', "COMMENT", 'FGM', 'FG3M', 'FTM', 'REB'], inplace=True)
+
+    return player_stats
+
+
+def save_player_stats(schedule, year):
     # Get each team of that season
     teams = schedule.HOME_TEAM.unique()
     team = "LAC"
     # For each team get their schedule
     clips_schedule = schedule[schedule['MATCHUP'].str.contains(team)]
     # Get team stats
-    clips = thread_save_player_stats(clips_schedule[["GAME_ID", "HOME_TEAM"]].copy(), team)
+    clips = thread_save_player_stats(clips_schedule[["GAME_ID", "HOME_TEAM"]].copy(), team, year)
     # Drop home team column as schedule already has column
     clips.drop(columns='HOME_TEAM', inplace=True)
     # Merge our two dataframes
-
     result = pd.merge(schedule, clips, on="GAME_ID", how="left")
     result.to_csv("data/games/2022/test.csv", index=False)
 
 
-def thread_save_player_stats(games, team):
-    print(games)
-    games_reviewed = 0
+def thread_save_player_stats(games, team, year):
+    print(games.to_string())
     home_teams = games["HOME_TEAM"].tolist()
+    # TODO When reading in df no leading zeros when passing dataframe leading zeros. Figure out solution
+    directory = "data/games/" + year + "/" + team + "/00"  # Add leading zeros as when we read in df they get dropped
+    player_dataframes = {}
+    player_ids = []  # Gets rid of warning later on when we reference player_ids. Not necessary
     # For each game get stats
     for game in games["GAME_ID"]:
-        # Check to see if we should start saving data
-        if games_reviewed >= GAMES_BACK:
-            # Figure out if team is home or away
-            if home_teams[games_reviewed] == team:
-                # Add data as home team
-                games.loc[games["GAME_ID"] == game, "Player 1"] = "20002213"
+        # Collect player averages for game
+        game_stats = pd.read_csv(directory + str(game) + "_stats.csv")
+        # Get players in game
+        player_ids = game_stats.PLAYER_ID.unique()
+        for player_id in player_ids:
+            # Get stats of player we are looking at
+            player_stats = game_stats.loc[game_stats["PLAYER_ID"] == player_id].copy()
+            player_stats = clean_player_stats(player_stats)
+            # print(player_stats)
+            # Check if we have dataframe already if so add to their original data frame
+            if player_id in player_dataframes:
+                player_dataframes[player_id] = pd.concat([player_dataframes[player_id], player_stats])
+            # Else create a dataframe for them
             else:
-                # Add data as away team
-                games.loc[games["GAME_ID"] == game, "OPP_Player 1"] = "20002213"
-
-        # Collect player averages
-
-        # Check if we need to update player ids for new top 10
-
-        # Increment games counter
-        games_reviewed += 1
+                player_dataframes[player_id] = player_stats
+    # Set up dataframe for rolling averages
+    valid_cols = player_dataframes[player_ids[0]].select_dtypes(include=[float, int])
+    invalid_cols = ["GAME_ID", "PLAYER_ID"]
+    valid_cols.drop(columns=invalid_cols, inplace=True)
+    valid_cols = valid_cols.columns
+    # Average all players games for each data frame
+    for player_id in player_dataframes:
+        player_dataframes[player_id] = pd.concat([player_dataframes[player_id][invalid_cols],
+                                                 player_dataframes[player_id][valid_cols].rolling(GAMES_BACK).mean()],
+                                                 axis=1)
+        player_dataframes[player_id] = player_dataframes[player_id].dropna()
+        player_dataframes[player_id].to_csv("data/games/2022/LAC/" + str(player_id) + "_test.csv", index=False)
 
     return games
 
@@ -100,7 +124,7 @@ def get_game_data(game_id):
              given game
     """
     box_score_data = b_data.BoxScoreTraditionalV2(game_id=game_id)
-    box_score_data = box_score_data.get_data_frames()[0] #[["TEAM_ABBREVIATION", "PLAYER_ID", "PLAYER_NAME", "MIN"]]
+    box_score_data = box_score_data.get_data_frames()[0]  # [["TEAM_ABBREVIATION", "PLAYER_ID", "PLAYER_NAME", "MIN"]]
     # Minutes are stored with seconds. 35 minutes 30 seconds is 35.0000:30
     # The line below removes everything after the period
     box_score_data["MIN"] = box_score_data["MIN"].str.split(".").str[0]
@@ -131,14 +155,23 @@ def thread_save_game_data(year, row):
     with GAME_LOCK:
         if game_id in GAME_PROCESSED:
             return
+        game_data = get_game_data(game_id)
         GAME_PROCESSED.add(game_id)
     # Get game data
-    game_data = get_game_data(game_id)
+    home_team = matchup[0:3]
+    away_team = matchup[-3:]
+    home_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(home_team)]
+    away_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(away_team)]
     # Make sure we have folder to save to
     directory = os.getcwd() + "/data/games/" + year
+    home_directory = directory + "/" + home_team + "/"
+    away_directory = directory + "/" + away_team + "/"
     folder_check(directory)
+    folder_check(home_directory)
+    folder_check(away_directory)
     # Save game data
-    game_data.to_csv(directory + "/" + game_id + "_stats.csv", index=False)
+    home_data.to_csv(home_directory + game_id + "_stats.csv", index=False)
+    away_data.to_csv(away_directory + game_id + "_stats.csv", index=False)
 
 
 def save_league_schedule(year):
@@ -183,9 +216,7 @@ def save_league_data(year):
     """
     # Save and get game id for all games played for given year
     schedule = save_league_schedule(year)
-    # Reset global variable used for gamesProcessed to save RAM in case of multiple years saved per run.
-    # DO NOT need to reset player as we are very likely to save time by keeping playerProcessed for multiple years
-    # and do not need to save a players career stats twice
+    # Reset global variable used for gamesProcessed to save space in case of multiple years saved per run.
     global GAME_PROCESSED
     GAME_PROCESSED = set()
     # Might want to consider another threading option
@@ -194,7 +225,7 @@ def save_league_data(year):
     with ThreadPoolExecutor(max_workers=NUM_CORES) as executor:
         executor.map(lambda row: thread_save_game_data(year, row), schedule.itertuples(index=False))
     # Save players stats
-    save_player_stats(schedule)
+    save_player_stats(schedule, year)
 
     # Using data from the stats we need to append to our schedule data frame
     game_ids = schedule["GAME_ID"].tolist()
@@ -217,8 +248,8 @@ def get_all_data(years):
 
 
 def main():
-    #save_player_stats(pd.read_csv('data/games/2022/schedule.csv'),)
-    #exit()
+    save_player_stats(pd.read_csv('data/games/2022/schedule.csv'), "2022")
+    exit()
     folder_setup()
     get_all_data(["2022"])
 
