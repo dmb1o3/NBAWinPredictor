@@ -19,7 +19,7 @@ GAME_PROCESSED = set()  # Saves data about game_ids we processed so threads don'
 PLAYER_LOCK = Lock()  # Used to sync threads for saving data on playerProcessed
 PLAYER_PROCESSED = set()  # Saves data about player_ids we processed so threads don't do redundant work
 NUM_PLAYER_PER_TEAM = 1  # Number of players per team that we should save stats for
-GAMES_BACK = 10  # Number of games to go back
+GAMES_BACK = 10  # Number of games to go back. Must be greater than or equal to 1
 
 
 def folder_setup():
@@ -30,7 +30,6 @@ def folder_setup():
     """
     folder_check(os.getcwd() + "/data")
     folder_check(os.getcwd() + "/data/games/")
-    folder_check(os.getcwd() + "/data/careerStats/")
 
 
 def folder_check(directory):
@@ -46,6 +45,12 @@ def folder_check(directory):
 
 
 def clean_player_stats(player_stats):
+    """
+    Given player stats for a game will drop stats that we do not need.
+
+    :param player_stats: Dataframe containing player stats for a given game
+    :return: Returns the dataframe without unneeded columns
+    """
     # Drop player stats that we do not need
     # Can drop amount of field goals and free throws as we keep percentage made and amount attempted
     # Can drop rebounds as we keep offensive rebounds and defensive rebounds
@@ -63,7 +68,7 @@ def save_player_stats(schedule, year):
     # For each team get their schedule
     clips_schedule = schedule[schedule['MATCHUP'].str.contains(team)]
     # Get team stats
-    clips = thread_save_player_stats(clips_schedule[["GAME_ID", "HOME_TEAM"]].copy(), team, year)
+    clips = average_and_save_player_stats(clips_schedule[["GAME_ID", "HOME_TEAM"]].copy(), team, year)
     # Drop home team column as schedule already has column
     clips.drop(columns='HOME_TEAM', inplace=True)
     # Merge our two dataframes
@@ -71,15 +76,46 @@ def save_player_stats(schedule, year):
     result.to_csv("data/games/2022/test.csv", index=False)
 
 
-def thread_save_player_stats(games, team, year):
+def gather_player_stats_by_minutes(game_id, players_stats, player_ids):
+    """
+    Given a game id and player stats will look through the players stats of a team for the given game and find the
+    players who played the most minutes. Will then return  Can set number of players by changing global var NUM_PLAYER_PER_TEAM.
+
+    :param game_id:
+    :param players_stats:
+    :param player_ids:
+    :return:
+    """
+
+    # Looking through player_stats find players who played most minutes up to NUM_PLAYERS_PER_TEAM
+    most_minutes = {}
+    for player_id in player_ids:
+        # Get minutes and averages
+        player_stats = players_stats[player_id]
+        game_stats = player_stats.loc[player_stats["GAME_ID"] == game_id]
+        # Get rid of data frames that have no stats
+        if len(game_stats) != 0:
+            print(game_stats)
+
+
+def average_and_save_player_stats(games, team, year):
+    """
+    When called will look at all dataframes saved for a team and make one giant dataframe.
+
+    :param games:
+    :param team:
+    :param year:
+    :return:
+    """
     print(games.to_string())
     home_teams = games["HOME_TEAM"].tolist()
     # TODO When reading in df no leading zeros when passing dataframe leading zeros. Figure out solution
     directory = "data/games/" + year + "/" + team + "/00"  # Add leading zeros as when we read in df they get dropped
     player_dataframes = {}
     player_ids = []  # Gets rid of warning later on when we reference player_ids. Not necessary
+    game_ids = games["GAME_ID"]
     # For each game get stats
-    for game in games["GAME_ID"]:
+    for game in game_ids:
         # Collect player averages for game
         game_stats = pd.read_csv(directory + str(game) + "_stats.csv")
         # Get players in game
@@ -106,9 +142,15 @@ def thread_save_player_stats(games, team, year):
                                                  player_dataframes[player_id][valid_cols].rolling(GAMES_BACK).mean()],
                                                  axis=1)
         player_dataframes[player_id] = player_dataframes[player_id].dropna()
-        player_dataframes[player_id].to_csv("data/games/2022/LAC/" + str(player_id) + "_test.csv", index=False)
 
-    return games
+    # Merge all player dataframes
+    team_df = pd.concat(player_dataframes.values(), ignore_index=True)
+    # Sort by game_id, so we clump player stats by game played instead of by player
+    team_df = team_df.sort_values(by='GAME_ID', ascending=True)
+    # Save data frame
+    team_df.to_csv("data/games/2022/" + team + "/" + team + "_player_averages.csv", index=False)
+
+    return team_df
 
 
 def get_game_data(game_id):
