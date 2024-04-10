@@ -98,15 +98,18 @@ def save_player_stats(schedule, year):
     opp_column_names_dict = make_column_names("OPP_" + column_prefix, stats)
     for team in teams:
         # For each team get their schedule
-        team_schedule = schedule[schedule['MATCHUP'].str.contains(team)]["GAME_ID"]
+        team_schedule = schedule[schedule['MATCHUP'].str.contains(team)][["GAME_ID", "HOME_TEAM"]]
         # Get team stats
-        team_dataframes[team] = average_and_save_player_stats(team_schedule, team, year)
+        team_dataframes[team] = average_and_save_player_stats(team_schedule["GAME_ID"], team, year)
         # Change team schedule to only have home games. Because model cannot predict future and averaged stats for a
         # game include that game what we will do later is move results back one. This means opponent data will need to
         # be from the next game. Right now we only want to add home data. Later we deal with opponet data
-        team_schedule = schedule[schedule['HOME_TEAM'].str.contains(team)]["GAME_ID"]
+        team_schedule = team_schedule[GAMES_BACK - 1:]
+        # Split into home and away
+        home_data = team_schedule[team_schedule["HOME_TEAM"] == team]
+        away_data = team_schedule[team_schedule["HOME_TEAM"] != team]
         # Loop through
-        for game in team_schedule[GAMES_BACK - 1:]:
+        for game in home_data["GAME_ID"]:
             # Get players who played in game
             players_in_game = team_dataframes[team][team_dataframes[team]["GAME_ID"] == game]
             # Get players who played the most minutes
