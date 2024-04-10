@@ -17,8 +17,13 @@ GAME_LOCK = Lock()  # Used to sync threads for saving data to gameProcessed
 GAME_PROCESSED = set()  # Saves data about game_ids we processed so threads don't do redundant work
 PLAYER_LOCK = Lock()  # Used to sync threads for saving data on playerProcessed
 PLAYER_PROCESSED = set()  # Saves data about player_ids we processed so threads don't do redundant work
-NUM_PLAYER_PER_TEAM = 1  # Number of players per team that we should save stats for
-GAMES_BACK = 10  # Number of games to go back. Must be greater than or equal to 1
+NUM_PLAYER_PER_TEAM = 6  # Number of players per team that we should save stats for
+# TODO Mess around with number. Sometimes if to high will cause program to error
+# Ex: 2022 SAS at GAMES_BACK = 10 and NUM_PLAYER_PER_TEAM = 6 they can only come up with 5 so index out of bounds
+# Might be able to add a fake player but probably cause issues with comparisons as they will have to have 0 for stats
+# Could also drop these games when found either by catching these errors and cleaning data after or by checking when
+# we build player averages
+GAMES_BACK = 8  # Number of games to go back. Must be greater than or equal to 1
 
 
 def folder_setup():
@@ -60,25 +65,70 @@ def clean_player_stats(player_stats):
     return player_stats
 
 
+def make_column_names(prefix, stats):
+    """
+    Given a list of stats will make a dictionary of column names from those stats.
+    prefix = "Player_", Stats = ["", "MIN", "PTS"], NUM_PLAYERS_PER_TEAM = 2
+    output = {0:{[PLAYER_1, PLAYER_1_MIN, PLAYER_1_PTS]} 1:{[PLAYER_2, PLAYER_2_MIN, PLAYER_2_PTS]}}
+
+    :param prefix: String with prefix for all column names
+    :param stats: List of strings with stats to append to column names
+    :return: Dictionary with keys being numbers from 0 to NUM_PLAYERS_PER_TEAM and values being list of
+             column names made up by adding prefix to front of all strings in stats
+    """
+    d = {}
+    for i in range(0, NUM_PLAYER_PER_TEAM):
+        columns = []
+        for stat in stats:
+            columns.append(prefix + str(i + 1) + "_" + stat)
+        d[i] = columns
+
+    return d
+
+
 def save_player_stats(schedule, year):
     # Get each team of that season
     teams = schedule.HOME_TEAM.unique()
+    team_dataframes = {}
+    # Set up column names so that we can more easily add data averaged data later on
+    stats = ["PLAYER_ID", "MIN", "FGA", "FG_PCT", "FG3A", "FG3_PCT", "FTA", "FT_PCT", "OREB", "DREB", "AST", "STL",
+             "BLK", "TO", "PF", "PTS", "PLUS_MINUS"]
+    column_prefix = "Player_"
+    column_names_dict = make_column_names(column_prefix, stats)
+    opp_column_names_dict = make_column_names("OPP_" + column_prefix, stats)
     for team in teams:
         # For each team get their schedule
-        team_schedule = schedule[schedule['MATCHUP'].str.contains(team)]
+        team_schedule = schedule[schedule['MATCHUP'].str.contains(team)]["GAME_ID"]
         # Get team stats
-        team_player_stats = average_and_save_player_stats(team_schedule["GAME_ID"], team, year)
+        team_dataframes[team] = average_and_save_player_stats(team_schedule, team, year)
+        # Change team schedule to only have home games. Because model cannot predict future and averaged stats for a
+        # game include that game what we will do later is move results back one. This means opponent data will need to
+        # be from the next game. Right now we only want to add home data. Later we deal with opponet data
+        team_schedule = schedule[schedule['HOME_TEAM'].str.contains(team)]["GAME_ID"]
+        # Loop through
+        for game in team_schedule[GAMES_BACK - 1:]:
+            # Get players who played in game
+            players_in_game = team_dataframes[team][team_dataframes[team]["GAME_ID"] == game]
+            # Get players who played the most minutes
+            players_in_game = players_in_game.head(NUM_PLAYER_PER_TEAM)
+            # Add players stats to schedule
+            for i in range(0, NUM_PLAYER_PER_TEAM):
+                column_names = column_names_dict[i]
+                schedule.loc[schedule["GAME_ID"] == game, column_names] = players_in_game.iloc[i][stats].to_numpy()
+
+    schedule.to_csv("data/games/" + year + "/test.csv", index=False)
 
 
-def average_and_save_player_stats(games, team_abbrev, year):
+def average_and_save_player_stats(team_schedule, team_abbrev, year):
     """
     When called will look at all games a team played from the given schedule. It will then make dataframes for each
     player combining all of their stats for that schedule. It will average their stats over a number of games set by
     global GAMES_BACK. It will then combine all player data frames into one for the team which it will then sort
     primarily by GAME_ID and then by MIN so when we finish stats are clumped into each game instead of each player. Also
-    means for each game player stats are sorted in descending order of minutes played
+    means for each game player stats are sorted in descending order of minutes played. We also save the teams averages
+    to data/year/team_abbrev/team_abbrev_player_averages.csv
 
-    :param games: Pandas series containing GAME_IDs we want to look at
+    :param team_schedule: Pandas series containing GAME_IDs we want to look at
     :param team_abbrev: String with abbreviation of team
     :param year: String of year schedule is for. Used to know where to save data
     :return: Dataframe of given teams averaged player stats sorted primarily by games and secondarily by minutes played
@@ -88,7 +138,7 @@ def average_and_save_player_stats(games, team_abbrev, year):
     player_dataframes = {}
     player_ids = []  # Gets rid of warning later on when we reference player_ids. Not necessary
     # For each game get stats
-    for game in games:
+    for game in team_schedule:
         # Collect player averages for game
         game_stats = pd.read_csv(directory + str(game) + "_stats.csv")
         # Get players in game
@@ -122,7 +172,7 @@ def average_and_save_player_stats(games, team_abbrev, year):
     # Then sort by MIN so within those games we have them sorted by amount of minutes the played
     team_df = team_df.sort_values(by=['GAME_ID', 'MIN'], ascending=[True, False])
     # Save data frame
-    team_df.to_csv("data/games/2022/" + team_abbrev + "/" + team_abbrev + "_player_averages.csv", index=False)
+    team_df.to_csv("data/games/" + year + "/" + team_abbrev + "/" + team_abbrev + "_player_averages.csv", index=False)
 
     return team_df
 
