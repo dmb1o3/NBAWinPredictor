@@ -23,7 +23,7 @@ NUM_PLAYER_PER_TEAM = 6  # Number of players per team that we should save stats 
 # Might be able to add a fake player but probably cause issues with comparisons as they will have to have 0 for stats
 # Could also drop these games when found either by catching these errors and cleaning data after or by checking when
 # we build player averages
-GAMES_BACK = 8  # Number of games to go back. Must be greater than or equal to 1
+GAMES_BACK = 4  # Number of games to go back. Must be greater than or equal to 1
 
 
 def folder_setup():
@@ -104,7 +104,7 @@ def save_player_stats(schedule, year):
         # Change team schedule to only have home games. Because model cannot predict future and averaged stats for a
         # game include that game what we will do later is move results back one. This means opponent data will need to
         # be from the next game. Right now we only want to add home data. Later we deal with opponet data
-        team_schedule = team_schedule[GAMES_BACK - 1:]
+        team_schedule = team_schedule[GAMES_BACK:]
         # Split into home and away
         home_data = team_schedule[team_schedule["HOME_TEAM"] == team]
         away_data = team_schedule[team_schedule["HOME_TEAM"] != team]
@@ -164,9 +164,15 @@ def average_and_save_player_stats(team_schedule, team_abbrev, year):
     valid_cols = valid_cols.columns
     # Average all players games for each data frame
     for player_id in player_dataframes:
+        # Shift player stats back so that we can
         player_dataframes[player_id] = pd.concat([player_dataframes[player_id][invalid_cols],
-                                                 player_dataframes[player_id][valid_cols].rolling(GAMES_BACK).mean()],
+                                                 player_dataframes[player_id][valid_cols].shift()],
                                                  axis=1)
+        # Average Player stats
+        player_dataframes[player_id] = pd.concat([player_dataframes[player_id][invalid_cols],
+                                                  player_dataframes[player_id][valid_cols].rolling(GAMES_BACK).mean()],
+                                                 axis=1)
+        # Drop rows with any cols with None
         player_dataframes[player_id] = player_dataframes[player_id].dropna()
 
     # Merge all player dataframes
@@ -255,7 +261,7 @@ def save_league_schedule(year):
     """
     folder_check(os.getcwd() + "/data/games/" + year)  # Check we have a /games/year folder
     league_data = l_data.LeagueGameLog(season=year)
-    league_data = league_data.get_data_frames()[0][["GAME_ID", "GAME_DATE", "MATCHUP", "TEAM_ID", "WL"]]
+    league_data = league_data.get_data_frames()[0]  # [["GAME_ID", "GAME_DATE", "MATCHUP", "TEAM_ID", "WL"]]
     # Add column for home team
     league_data["HOME_TEAM"] = league_data["MATCHUP"].str[:3]
     # Rename TEAM_ID to HOME_TEAM_ID for more accurate name
@@ -303,10 +309,13 @@ def save_league_data(year):
 
 def get_all_data(years):
     """
-    Will get all data need for model for years given. Uses save_league_data(). Function also outputs time it takes to
-    save data
+    Will get all data needed for model for years given. The Function also outputs the time it
+    takes to save data
 
-    :param years: List of strings. Each with a year we want NBA data for
+    Functions Called
+    Uses save_league_data()
+
+    :param years: List of strings. Each index being a year we want NBA data for
     :return: Does not return anything
     """
     # Save league schedule
@@ -321,7 +330,7 @@ def main():
     save_player_stats(pd.read_csv('data/games/2022/schedule.csv'), "2022")
     exit()
     folder_setup()
-    #get_all_data(["2022"])
+    get_all_data(["2022"])
 
 
 if __name__ == "__main__":
