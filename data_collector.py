@@ -119,6 +119,18 @@ def save_player_stats(schedule, year):
                 column_names = column_names_dict[i]
                 schedule.loc[schedule["GAME_ID"] == game, column_names] = players_in_game.iloc[i][stats].to_numpy()
 
+        for game in away_data["GAME_ID"]:
+            # Get players who played in game
+            players_in_game = team_dataframes[team][team_dataframes[team]["GAME_ID"] == game]
+            # Get players who played the most minutes
+            players_in_game = players_in_game.head(NUM_PLAYER_PER_TEAM)
+            # Add players stats to schedule
+            for i in range(0, NUM_PLAYER_PER_TEAM):
+                column_names = opp_column_names_dict[i]
+                schedule.loc[schedule["GAME_ID"] == game, column_names] = players_in_game.iloc[i][stats].to_numpy()
+
+    # Get rid of any rows with no data
+    schedule = schedule.dropna()
     schedule.to_csv("data/games/" + year + "/test.csv", index=False)
 
 
