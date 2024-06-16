@@ -17,15 +17,16 @@ GAME_LOCK = Lock()  # Used to sync threads for saving data to gameProcessed
 GAME_PROCESSED = set()  # Saves data about game_ids we processed so threads don't do redundant work
 PLAYER_LOCK = Lock()  # Used to sync threads for saving data on playerProcessed
 PLAYER_PROCESSED = set()  # Saves data about player_ids we processed so threads don't do redundant work
-NUM_PLAYER_PER_TEAM = 6  # Number of players per team that we should save stats for
+NUM_PLAYER_PER_TEAM = 5  # Number of players per team that we should save stats for
 # TODO Mess around with number. Sometimes if to high will cause program to error
 # Ex: 2022 SAS at GAMES_BACK = 10 and NUM_PLAYER_PER_TEAM = 6 they can only come up with 5 so index out of bounds
 # Might be able to add a fake player but probably cause issues with comparisons as they will have to have 0 for stats
 # Could also drop these games when found either by catching these errors and cleaning data after or by checking when
 # we build player averages
-GAMES_BACK = 4  # Number of games to go back. Must be greater than or equal to 1
-
-
+GAMES_BACK = 5  # Number of games to go back. Must be greater than or equal to 1
+GAMES_BACK_BUFFER = 5 # Some teams have rough start to season or trades causing it not to have enough players
+                      # this adds an additonal bufffer to the games we look at so players can build up enough games
+                      # to be usable
 def folder_setup():
     """
     Makes sure that folders used in program are set up
@@ -97,19 +98,21 @@ def save_player_stats(schedule, year):
     column_names_dict = make_column_names(column_prefix, stats)
     opp_column_names_dict = make_column_names("OPP_" + column_prefix, stats)
     for team in teams:
+        print(team)
         # For each team get their schedule
         team_schedule = schedule[schedule['MATCHUP'].str.contains(team)][["GAME_ID", "HOME_TEAM"]]
         # Get team stats
-        team_dataframes[team] = average_and_save_player_stats(team_schedule["GAME_ID"], team, year)
+        team_dataframes[team] = average_and_save_player_stats(team_schedule["GAME_ID"], team, "data/games/" + year)
         # Change team schedule to only have home games. Because model cannot predict future and averaged stats for a
         # game include that game what we will do later is move results back one. This means opponent data will need to
         # be from the next game. Right now we only want to add home data. Later we deal with opponet data
-        team_schedule = team_schedule[GAMES_BACK:]
+        team_schedule = team_schedule[GAMES_BACK + GAMES_BACK_BUFFER:]
         # Split into home and away
         home_data = team_schedule[team_schedule["HOME_TEAM"] == team]
         away_data = team_schedule[team_schedule["HOME_TEAM"] != team]
-        # Loop through
+        # Loop through home games
         for game in home_data["GAME_ID"]:
+            print(game)
             # Get players who played in game
             players_in_game = team_dataframes[team][team_dataframes[team]["GAME_ID"] == game]
             # Get players who played the most minutes
@@ -118,8 +121,9 @@ def save_player_stats(schedule, year):
             for i in range(0, NUM_PLAYER_PER_TEAM):
                 column_names = column_names_dict[i]
                 schedule.loc[schedule["GAME_ID"] == game, column_names] = players_in_game.iloc[i][stats].to_numpy()
-
+        # Loop through away games
         for game in away_data["GAME_ID"]:
+            print(game)
             # Get players who played in game
             players_in_game = team_dataframes[team][team_dataframes[team]["GAME_ID"] == game]
             # Get players who played the most minutes
@@ -131,10 +135,10 @@ def save_player_stats(schedule, year):
 
     # Get rid of any rows with no data
     schedule = schedule.dropna()
-    schedule.to_csv("data/games/" + year + "/test.csv", index=False)
+    schedule.to_csv("data/games/" + year + "/Buffered_test.csv", index=False)
 
 
-def average_and_save_player_stats(team_schedule, team_abbrev, year):
+def average_and_save_player_stats(team_schedule, team_abbrev, directory):
     """
     When called will look at all games a team played from the given schedule. It will then make dataframes for each
     player combining all of their stats for that schedule. It will average their stats over a number of games set by
@@ -148,14 +152,15 @@ def average_and_save_player_stats(team_schedule, team_abbrev, year):
     :param year: String of year schedule is for. Used to know where to save data
     :return: Dataframe of given teams averaged player stats sorted primarily by games and secondarily by minutes played
     """
+    print(team_abbrev + " AVG")
     # TODO When reading in df no leading zeros when passing dataframe leading zeros. Figure out solution
-    directory = "data/games/" + year + "/" + team_abbrev + "/00"  # Add leading zeros as when we read in df they get dropped
+    directory = directory + "/" + team_abbrev + "/"  # Add leading zeros as when we read in df they get dropped
     player_dataframes = {}
     player_ids = []  # Gets rid of warning later on when we reference player_ids. Not necessary
     # For each game get stats
     for game in team_schedule:
-        # Collect player averages for game
-        game_stats = pd.read_csv(directory + str(game) + "_stats.csv")
+        # Collect player averages for game. Need to read GAME_ID as string as it has leading zeros
+        game_stats = pd.read_csv(directory + str(game) + "_stats.csv", dtype={'GAME_ID': str})
         # Get players in game
         player_ids = game_stats.PLAYER_ID.unique()
         for player_id in player_ids:
@@ -171,10 +176,10 @@ def average_and_save_player_stats(team_schedule, team_abbrev, year):
                 player_dataframes[player_id] = player_stats
     # Set up dataframe for rolling averages
     valid_cols = player_dataframes[player_ids[0]].select_dtypes(include=[float, int])
-    invalid_cols = ["GAME_ID", "PLAYER_ID"]
-    valid_cols.drop(columns=invalid_cols, inplace=True)
+    valid_cols.drop(columns=["PLAYER_ID"], inplace=True)
+    invalid_cols = ["GAME_ID", "PLAYER_ID"]  # Declared here so formatted better later on
     valid_cols = valid_cols.columns
-    # Average all players games for each data frame
+    # For all player dataframes averages players games
     for player_id in player_dataframes:
         # Shift player stats back so that we can
         player_dataframes[player_id] = pd.concat([player_dataframes[player_id][invalid_cols],
@@ -193,7 +198,9 @@ def average_and_save_player_stats(team_schedule, team_abbrev, year):
     # Then sort by MIN so within those games we have them sorted by amount of minutes the played
     team_df = team_df.sort_values(by=['GAME_ID', 'MIN'], ascending=[True, False])
     # Save data frame
-    team_df.to_csv("data/games/" + year + "/" + team_abbrev + "/" + team_abbrev + "_player_averages.csv", index=False)
+    team_df.to_csv(directory + "/" + team_abbrev + "_player_averages " +
+                   "(PLAYERS_PER_TEAM = " + str(NUM_PLAYER_PER_TEAM) + " GAMES_BACK = " + str(GAMES_BACK) + ")" +
+                   ".csv", index=False)
 
     return team_df
 
@@ -273,7 +280,7 @@ def save_league_schedule(year):
     """
     folder_check(os.getcwd() + "/data/games/" + year)  # Check we have a /games/year folder
     league_data = l_data.LeagueGameLog(season=year)
-    league_data = league_data.get_data_frames()[0]  # [["GAME_ID", "GAME_DATE", "MATCHUP", "TEAM_ID", "WL"]]
+    league_data = league_data.get_data_frames()[0][["GAME_ID", "GAME_DATE", "MATCHUP", "TEAM_ID", "WL"]]
     # Add column for home team
     league_data["HOME_TEAM"] = league_data["MATCHUP"].str[:3]
     # Rename TEAM_ID to HOME_TEAM_ID for more accurate name
@@ -339,10 +346,10 @@ def get_all_data(years):
 
 
 def main():
-    save_player_stats(pd.read_csv('data/games/2022/schedule.csv'), "2022")
+    save_player_stats(pd.read_csv('data/games/2021/schedule.csv', dtype={'GAME_ID': str}), "2021")
     exit()
     folder_setup()
-    get_all_data(["2022"])
+    get_all_data(["2021", "2020"])
 
 
 if __name__ == "__main__":
