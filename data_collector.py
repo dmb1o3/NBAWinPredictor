@@ -23,10 +23,13 @@ NUM_PLAYER_PER_TEAM = 5  # Number of players per team that we should save stats 
 # Might be able to add a fake player but probably cause issues with comparisons as they will have to have 0 for stats
 # Could also drop these games when found either by catching these errors and cleaning data after or by checking when
 # we build player averages
-GAMES_BACK = 5  # Number of games to go back. Must be greater than or equal to 1
-GAMES_BACK_BUFFER = 5 # Some teams have rough start to season or trades causing it not to have enough players
-                      # this adds an additonal bufffer to the games we look at so players can build up enough games
-                      # to be usable
+GAMES_BACK = 10  # Number of games to go back. Must be greater than or equal to 1
+# Some teams have rough start to season or trades causing it not to have enough players
+# this adds a buffer to the games we look at so players can build up enough games
+# to be usable
+GAMES_BACK_BUFFER = 4
+
+
 def folder_setup():
     """
     Makes sure that folders used in program are set up
@@ -326,30 +329,47 @@ def save_league_data(year):
     game_ids = schedule["GAME_ID"].tolist()
 
 
-def get_all_data(years):
+def get_all_data(years, data_is_downloaded):
     """
-    Will get all data needed for model for years given. The Function also outputs the time it
+    Will get all data needed for a model for years given. The function also outputs the time it
     takes to save data
 
     Functions Called
     Uses save_league_data()
 
+    :param data_is_downloaded: Boolean that is true if data is downloaded for given years and false if not
     :param years: List of strings. Each index being a year we want NBA data for
     :return: Does not return anything
     """
     # Save league schedule
     for year in years:
         start_time = time.time()
-        print("Saving data for NBA season " + year)
-        save_league_data(year)
-        print("Finished saving data took " + str(time.time() - start_time) + " seconds")
+        print("Starting for NBA season " + year)
+        if data_is_downloaded:
+            save_player_stats(pd.read_csv("data/games/" + year + "/schedule.csv", dtype={'GAME_ID': str}), year)
+        else:
+            save_league_data(year)
+        print("Finished took " + str((time.time() - start_time)/60) + " minutes")
 
 
 def main():
-    save_player_stats(pd.read_csv('data/games/2021/schedule.csv', dtype={'GAME_ID': str}), "2021")
-    exit()
+    # Get information from user, so we know what seasons to download and/or prepare data for
+    # Also asks user if they already have data downloaded, so we can skip download and skip to preparing that data
+    years = input("What years would you like to download/prepare? If multiple just type them with a space like \"2020 "
+                  "2021 2022\" ")
+    years = years.split()
+    print("Do you have the data downloaded already? (Type number associated with choice)")
+    print("1. Yes")
+    print("2. No")
+    downloaded_data = input("")
+    if downloaded_data == "1":
+        downloaded_data = True
+    else:
+        downloaded_data = False
+
+    # Make sure we have basic folders needed for program setup
     folder_setup()
-    get_all_data(["2021", "2020"])
+    get_all_data(years, downloaded_data)
 
 
 if __name__ == "__main__":
