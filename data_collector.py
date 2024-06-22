@@ -115,8 +115,15 @@ def save_player_stats(schedule, year):
         team_schedule = schedule[schedule['MATCHUP'].str.contains(team)][["GAME_ID", "GAME_DATE", "HOME_TEAM"]]
         # Average player_stats and save all player ids for players who played on team
         team_dataframes[team] = average_and_save_player_stats(team_schedule[["GAME_ID", "GAME_DATE"]], team, year)
-    exit()
+
+    # Now that we have player stats, we can go through the season team by team again.
+    # The reason this cannot be done in the same loop above is that we need to wait until all teams have run so a
     for team in teams:
+        # Get the dataframes for all players who played on team in season
+        player_dic = get_averaged_player_stats(team_dataframes[team], year)
+
+        # OLD CODE BELOW
+
         # Change team schedule to only have home games. Because model cannot predict future and averaged stats for a
         # game include that game what we will do later is move results back one. This means opponent data will need to
         # be from the next game. Right now we only want to add home data. Later we deal with opponet data
@@ -172,7 +179,6 @@ def average_and_save_player_stats(team_schedule, team_abbrev, year):
     player_ids = []  # Gets rid of warning later on when we reference player_ids. Not necessary
     # For each game get stats
     for game in team_schedule["GAME_ID"]:
-        print(game)
         # Collect player averages for game. Need to read GAME_ID as string as it has leading zeros
         game_stats = pd.read_csv(directory + str(game) + "_stats.csv", dtype={'GAME_ID': str})
         # Get players in game
@@ -181,50 +187,68 @@ def average_and_save_player_stats(team_schedule, team_abbrev, year):
             # Get stats of player we are looking at
             player_stats = game_stats.loc[game_stats["PLAYER_ID"] == player_id].copy()
             player_stats = clean_player_stats(player_stats)
-            player_stats = player_stats.merge(team_schedule[['GAME_ID', 'GAME_DATE']], on='GAME_ID', how='left')            # print(player_stats)
+            player_stats = player_stats.merge(team_schedule[['GAME_ID', 'GAME_DATE']], on='GAME_ID',
+                                              how='left')  # print(player_stats)
             # Check if we have dataframe already if so add to their original data frame
             if player_id in player_dataframes:
                 player_dataframes[player_id] = pd.concat([player_dataframes[player_id], player_stats])
             # Else create a dataframe for them
             else:
                 player_dataframes[player_id] = player_stats
-    # Set up dataframe for rolling averages
-    # valid_cols = player_dataframes[player_ids[0]].select_dtypes(include=[float, int])
-    # valid_cols.drop(columns=["PLAYER_ID"], inplace=True)
-    # invalid_cols = ["GAME_ID", "PLAYER_ID"]  # Declared here so formatted better later on
-    # valid_cols = valid_cols.columns
+
     folder_check(os.getcwd() + "/data/players")
     folder_check(os.getcwd() + "/data/players/" + year)
     # For all player dataframes averages players games
     for player_id in player_dataframes:
         directory = os.getcwd() + "/data/players/" + year + "/" + str(player_id)
         folder_check(directory)
-        # Shift player stats back so that we can
-        # player_dataframes[player_id] = pd.concat([player_dataframes[player_id][invalid_cols],
-        #                                          player_dataframes[player_id][valid_cols].shift()],
-        #                                         axis=1)
-        # Average Player stats
-        # player_dataframes[player_id] = pd.concat([player_dataframes[player_id][invalid_cols],
-        #                                          player_dataframes[player_id][valid_cols].rolling(GAMES_BACK).mean()],
-        #                                         axis=1)
-        # Drop rows with any cols with None
-        # player_dataframes[player_id] = player_dataframes[player_id].dropna()
-
-        # Try to read player dataframe if there is one means they have played for another team so we need to append
-        # stats
-        # If exception, meaning no file, then create file
         try:
-            player_data = pd.read_csv(directory + "/Player_averages.csv", dtype={'GAME_ID': str})
+            player_data = pd.read_csv(directory + "/Player_Stats.csv", dtype={'GAME_ID': str})
             # Combine players games on current team with previous team
             combo_player_data = pd.concat([player_data, player_dataframes[player_id]])
             # Sort by game date to make sure things are in order
             combo_player_data = combo_player_data.sort_values(by=['GAME_DATE'], ascending=[True])
             # Save data
-            combo_player_data.to_csv(directory + "/Player_averages.csv", index=False)
+            combo_player_data.to_csv(directory + "/Player_Stats.csv", index=False)
         except Exception as e:
-            player_dataframes[player_id].to_csv(directory + "/Player_averages.csv", index=False)
+            player_dataframes[player_id].to_csv(directory + "/Player_Stats.csv", index=False)
 
     return list(player_dataframes.keys())
+
+
+def get_averaged_player_stats(player_ids, year):
+    directory = os.getcwd() + "/data/players/" + year + "/"
+    invalid_cols = ["GAME_ID", "GAME_DATE", "PLAYER_ID"]
+    player_dataframes = {}
+    for player_id in player_ids:
+        try:
+            # Try to open averaged stats as if a previous team already did work we can just open it
+            player_dataframes[player_id] = pd.read_csv(directory + player_id + "/Player_Averages.csv",
+                                                       dtype={'GAME_ID': str})
+        except Exception as e:
+            # If an exception is thrown then we know file does not exist
+            # Read the player stats
+            player_dataframes[player_id] = pd.read_csv(directory + str(player_id) + "/Player_Stats.csv",
+                                                       dtype={'GAME_ID': str})
+            # Average them
+            # Set up dataframe for rolling averages
+            valid_cols = player_dataframes[player_id].select_dtypes(include=[float, int])
+            valid_cols.drop(columns=["PLAYER_ID"], inplace=True)
+            valid_cols = valid_cols.columns
+            # Shift player stats back so that we can
+            player_dataframes[player_id] = pd.concat([player_dataframes[player_id][invalid_cols],
+                                                      player_dataframes[player_id][valid_cols].shift()], axis=1)
+            # Average Player stats
+            player_dataframes[player_id] = pd.concat([player_dataframes[player_id][invalid_cols],
+                                                      player_dataframes[player_id][valid_cols].rolling(GAMES_BACK).mean()],
+                                                     axis=1)
+            # Drop rows with any cols with None
+            player_dataframes[player_id] = player_dataframes[player_id].dropna()
+
+            # Save to dataframe and also to csv incase future team wants to use
+            player_dataframes[player_id].to_csv(directory + str(player_id) + "/Player_Averages.csv", index=False)
+
+    return player_dataframes
 
 
 def get_game_data(game_id):
