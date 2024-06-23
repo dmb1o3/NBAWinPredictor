@@ -152,6 +152,8 @@ def save_player_stats(schedule, year):
 
     # Get rid of any rows with no data
     schedule = schedule.dropna()
+    # Convert dates to something that the machine can understand
+
     schedule.to_csv("data/games/" + year + "/Final Dataset " +
                     "(PLAYERS_PER_TEAM = " + str(NUM_PLAYER_PER_TEAM) + " GAMES_BACK = " + str(GAMES_BACK) +
                     " GAMES_BUFFER = " + str(GAMES_BACK_BUFFER) + ").csv", index=False)
@@ -334,10 +336,10 @@ def save_league_schedule(year):
     # Rename TEAM_ID to HOME_TEAM_ID for more accurate name
     league_data = league_data.rename(columns={})
     # Add OPP_TEAM_ID
-    df_at = league_data[league_data['MATCHUP'].str.contains('@')][['GAME_ID', 'TEAM_ID']].rename(columns={'TEAM_ID': 'OPP_TEAM_ID'})
+    df_at = league_data[league_data['MATCHUP'].str.contains('@')][['GAME_ID', 'TEAM_ID']].rename(
+        columns={'TEAM_ID': 'OPP_TEAM_ID'})
     # Merge DataFrames on 'GAME_ID'
     league_data = pd.merge(league_data, df_at, on='GAME_ID', how='left')
-
 
     # Figure out who won
     league_data["WL"] = np.where(league_data["WL"] == "W", league_data["MATCHUP"].str.slice(start=0, stop=3),
@@ -408,6 +410,34 @@ def get_all_data(years, data_is_downloaded):
         print("Finished took " + str((time.time() - start_time) / 60) + " minutes")
 
     # Combine all years into one dataframe
+
+
+def gather_data_for_model(year):
+    """
+    The function assumes that the data has already been downloaded and prepared for the years provided.
+    It also assumes that settings (GAMES_BACK, GAMES_BACK_BUFFER, NUM_PLAYER_PER_TEAM) used for all years is not only
+    the same but also the current settings of the progam.
+
+    :param year: Years the model would like data for
+    :return: Returns two things
+             1. Numpy array of all the parameters
+             2. Numpy array with results
+    """
+
+    # Get data frame for given year
+    data = pd.read_csv("data/games/" + year + "/Final Dataset " +
+                           "(PLAYERS_PER_TEAM = " + str(NUM_PLAYER_PER_TEAM) + " GAMES_BACK = " + str(GAMES_BACK) +
+                           " GAMES_BUFFER = " + str(GAMES_BACK_BUFFER) + ").csv", dtype={'GAME_ID': str})
+    # Convert parameters to numpy array
+    invalid_cols = ["GAME_DATE", "MATCHUP", "WINNER", "HOME_TEAM", "HOME_TEAM_WON"]
+    x = data.drop(columns=invalid_cols).to_numpy()
+
+    # Convert results to numpy array
+    y = data["HOME_TEAM_WON"].to_numpy()
+
+    return x, y
+
+
 
 def main():
     # Get information from user, so we know what seasons to download and/or prepare data for
