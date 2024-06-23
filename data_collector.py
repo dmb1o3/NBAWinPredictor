@@ -332,16 +332,27 @@ def save_league_schedule(year):
     # Add column for home team
     league_data["HOME_TEAM"] = league_data["MATCHUP"].str[:3]
     # Rename TEAM_ID to HOME_TEAM_ID for more accurate name
-    league_data = league_data.rename(columns={"TEAM_ID": "HOME_TEAM_ID"})
+    league_data = league_data.rename(columns={})
+    # Add OPP_TEAM_ID
+    df_at = league_data[league_data['MATCHUP'].str.contains('@')][['GAME_ID', 'TEAM_ID']].rename(columns={'TEAM_ID': 'OPP_TEAM_ID'})
+    # Merge DataFrames on 'GAME_ID'
+    league_data = pd.merge(league_data, df_at, on='GAME_ID', how='left')
+
 
     # Figure out who won
     league_data["WL"] = np.where(league_data["WL"] == "W", league_data["MATCHUP"].str.slice(start=0, stop=3),
                                  league_data["MATCHUP"].str.slice(start=-3))
     # Rename column to make it easier to understand
-    league_data = league_data.rename(columns={"WL": "WINNER"})
+    league_data = league_data.rename(columns={"WL": "WINNER", "TEAM_ID": "HOME_TEAM_ID"})
+
+    league_data["HOME_TEAM_WON"] = (league_data['HOME_TEAM'] == league_data['WINNER']).astype(int)
     # Data set contains two instances for a single game one for the home team and one for away team
     # here we only take matchups with vs. instead of @ meaning we take all home team copies game
     league_data = league_data[league_data["MATCHUP"].str.contains("vs.", na=False)]
+    # Change order so it's more readable for humans
+    desired_order = ['GAME_ID', 'GAME_DATE', 'MATCHUP', 'HOME_TEAM_ID', 'OPP_TEAM_ID', 'HOME_TEAM', 'WINNER',
+                     'HOME_TEAM_WON']
+    league_data = league_data.reindex(columns=desired_order)
     league_data.to_csv(os.getcwd() + "/data/games/" + year + "/schedule.csv", index=False)
 
     return league_data
@@ -396,6 +407,7 @@ def get_all_data(years, data_is_downloaded):
             save_league_data(year)
         print("Finished took " + str((time.time() - start_time) / 60) + " minutes")
 
+    # Combine all years into one dataframe
 
 def main():
     # Get information from user, so we know what seasons to download and/or prepare data for
