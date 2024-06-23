@@ -412,7 +412,7 @@ def get_all_data(years, data_is_downloaded):
     # Combine all years into one dataframe
 
 
-def gather_data_for_model(year):
+def gather_data_for_model(years):
     """
     The function assumes that the data has already been downloaded and prepared for the years provided.
     It also assumes that settings (GAMES_BACK, GAMES_BACK_BUFFER, NUM_PLAYER_PER_TEAM) used for all years is not only
@@ -423,20 +423,25 @@ def gather_data_for_model(year):
              1. Numpy array of all the parameters
              2. Numpy array with results
     """
-
-    # Get data frame for given year
-    data = pd.read_csv("data/games/" + year + "/Final Dataset " +
+    data = []
+    for year in years:
+        # Get data frame for given year
+        df = pd.read_csv("data/games/" + year + "/Final Dataset " +
                            "(PLAYERS_PER_TEAM = " + str(NUM_PLAYER_PER_TEAM) + " GAMES_BACK = " + str(GAMES_BACK) +
                            " GAMES_BUFFER = " + str(GAMES_BACK_BUFFER) + ").csv", dtype={'GAME_ID': str})
+        data.append(df)
+
+    data = pd.concat(data, ignore_index=True)
+
     # Convert parameters to numpy array
     invalid_cols = ["GAME_DATE", "MATCHUP", "WINNER", "HOME_TEAM", "HOME_TEAM_WON"]
     x = data.drop(columns=invalid_cols).to_numpy()
 
     # Convert results to numpy array
     y = data["HOME_TEAM_WON"].to_numpy()
+    data.to_csv("data/data.csv", index=False)
 
     return x, y
-
 
 
 def main():
