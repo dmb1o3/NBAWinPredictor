@@ -164,6 +164,14 @@ def save_player_stats(schedule, year):
     # Get rid of any rows with no data
     schedule = schedule.dropna()
     # Convert dates to something that the machine can understand
+    date_data = schedule['GAME_DATE'].str.split('-', expand=True)
+    print(date_data)
+    # Convert the new columns to integers
+    schedule[['YEAR', 'MONTH', 'DAY']] = schedule["GAME_DATE"].str.split('-', expand=True)
+
+    # Reorder for readability
+    #reorder = schedule[:2] + ['YEAR', 'MONTH', 'DAY'] + schedule[2:-3]
+    #schedule = schedule[reorder]
 
     schedule.to_csv("data/games/" + year + "/Final Dataset " +
                     "(PLAYERS_PER_TEAM = " + str(NUM_PLAYER_PER_TEAM) + " GAMES_BACK = " + str(GAMES_BACK) +
@@ -449,9 +457,9 @@ def gather_data_for_model(years):
     """
     The function assumes that the data has already been downloaded and prepared for the years provided.
     It also assumes that settings (GAMES_BACK, GAMES_BACK_BUFFER, NUM_PLAYER_PER_TEAM) used for all years is not only
-    the same but also the current settings of the progam.
+    the same but also the current settings of the program.
 
-    :param year: Years the model would like data for
+    :param years: Array of strings with each index being a year we would like nba data for
     :return: Returns two things
              1. Numpy array of all the parameters
              2. Numpy array with results
