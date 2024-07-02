@@ -125,9 +125,9 @@ def save_player_stats(schedule, year):
     stats = ["PLAYER_ID", "MIN", "FGA", "FG_PCT", "FG3A", "FG3_PCT", "FTA", "FT_PCT", "OREB", "DREB", "AST", "STL",
              "BLK", "TO", "PF", "PTS", "PLUS_MINUS"]
     column_prefix = "Player_"
-    hom_column_names = make_column_names(column_prefix, stats)
-    opp_column_names = make_column_names("OPP_" + column_prefix, stats)
-    schedule = set_up_columns(schedule, hom_column_names)
+    home_column_names = make_column_names("HOME_" + column_prefix, stats)
+    away_column_names = make_column_names("AWAY_" + column_prefix, stats)
+    schedule = set_up_columns(schedule, [["HOME_WIN_STREAK"]] + home_column_names)
 
     # To make sure we get stats for a players whole season, we need to append to Players file in folder of player's id.
     # Because of this, we need to make sure we delete any old data that might be in this years /data/players/year folder
@@ -142,7 +142,7 @@ def save_player_stats(schedule, year):
 
     for team in teams:
         # For each team get their schedule
-        team_schedule[team] = schedule[schedule['MATCHUP'].str.contains(team)][["GAME_ID", "GAME_DATE", "HOME_TEAM"]]
+        team_schedule[team] = schedule[schedule['MATCHUP'].str.contains(team)][["GAME_ID", "GAME_DATE", "HOME_TEAM", "WINNER"]]
         # Average player_stats and save all player ids for players who played on team
         team_dataframes[team] = average_and_save_player_stats(team_schedule[team][["GAME_ID", "GAME_DATE"]], team, year)
 
@@ -150,11 +150,18 @@ def save_player_stats(schedule, year):
     # The reason this cannot be done in the same loop above is that we need to wait until all teams have run so a
     # player's stats are for the whole season
     for team in teams:
-        currentWins = 0
         # Get the averaged dataframes for all players who played on team in season
         team_dataframes[team] = get_averaged_player_stats(team_dataframes[team], year, team)
-        # @TODO: Look into if we need to do this. Since we drop None rows when we average might already be handled
         team_sch = team_schedule[team][GAMES_BACK + GAMES_BACK_BUFFER:]
+        # Right now we just set to 0 but for some teams since not start of season will be on win streak
+        # @TODO Check to see if this slices right seems to be off by an extra game. Stats seem fine but should check to
+        games_not_processed = team_schedule[team][:GAMES_BACK + GAMES_BACK_BUFFER]
+        # Loop through games not processed for a model so that we have accurate win streak for start of games we process
+        current_win_streak = 0
+        for winner in games_not_processed["WINNER"][::-1]:
+            if winner != team:
+                break
+            current_win_streak += 1
 
         # Loop through team schedule
         for game in team_sch["GAME_ID"]:
@@ -163,14 +170,24 @@ def save_player_stats(schedule, year):
             # Get players who played the most minutes
             players_in_game = players_in_game.head(NUM_PLAYER_PER_TEAM)
             if team_sch.loc[team_sch["GAME_ID"] == game]["HOME_TEAM"].values[0] == team:
-                columns = hom_column_names
+                columns = home_column_names
+                # Add win streak stat to schedule
+                schedule.loc[schedule["GAME_ID"] == game, "HOME_WIN_STREAK"] = current_win_streak
             else:
-                columns = opp_column_names
+                columns = away_column_names
+                # Add win streak stat to schedule
+                schedule.loc[schedule["GAME_ID"] == game, "AWAY_WIN_STREAK"] = current_win_streak
+
+            # See if win streak continues
+            if schedule.loc[schedule["GAME_ID"] == game]["WINNER"].values[0] == team:
+                current_win_streak += 1
+            else:
+                current_win_streak = 0
 
             # Add players stats to schedule
             for i in range(0, NUM_PLAYER_PER_TEAM):
                 column_names = columns[i]
-                schedule.loc[schedule["GAME_ID"] == game, column_names] = players_in_game.iloc[i][stats].to_numpy()
+                schedule.loc[schedule["GAME_ID"] == game, column_names] = (players_in_game.iloc[i][stats].to_numpy())
 
     # Get rid of any rows with no data
     schedule = schedule.dropna()
@@ -180,7 +197,7 @@ def save_player_stats(schedule, year):
     schedule = pd.concat([schedule.iloc[:, :2], year_month_day[1], schedule.iloc[:, 2:]], axis=1)
     schedule = pd.concat([schedule.iloc[:, :3], year_month_day[2], schedule.iloc[:, 3:]], axis=1)
     schedule = schedule.rename(columns={"GAME_DATE": "YEAR", 1: "MONTH", 2: "DAY"})
-
+    # Save data frame so we can reuse
     schedule.to_csv("data/games/" + year + "/Final Dataset " +
                     "(PLAYERS_PER_TEAM = " + str(NUM_PLAYER_PER_TEAM) + " GAMES_BACK = " + str(GAMES_BACK) +
                     " GAMES_BUFFER = " + str(GAMES_BACK_BUFFER) + ").csv", index=False)
