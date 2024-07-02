@@ -179,7 +179,7 @@ def save_player_stats(schedule, year):
     schedule["GAME_DATE"] = year_month_day[0]
     schedule = pd.concat([schedule.iloc[:, :2], year_month_day[1], schedule.iloc[:, 2:]], axis=1)
     schedule = pd.concat([schedule.iloc[:, :3], year_month_day[2], schedule.iloc[:, 3:]], axis=1)
-    schedule = schedule.rename(columns={"GAME_DATE": "YEAR", "1": "MONTH", "2": "DAY"})
+    schedule = schedule.rename(columns={"GAME_DATE": "YEAR", 1: "MONTH", 2: "DAY"})
 
     schedule.to_csv("data/games/" + year + "/Final Dataset " +
                     "(PLAYERS_PER_TEAM = " + str(NUM_PLAYER_PER_TEAM) + " GAMES_BACK = " + str(GAMES_BACK) +
