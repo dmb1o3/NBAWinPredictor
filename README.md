@@ -2,7 +2,9 @@
 
 ## __Description__ 
 This was a project built to explore machine learning models using something I'm interested in. 
-I am a huge Clippers fan who has been following the NBA for the last couple of years
+I am a huge Clippers fan who has been following the NBA for the last couple of years and thought it would help me
+learn more about data science and the NBA. This project is still a work in progress, however, it is at a usable point if you
+would like to try it out or do you own projects. 
 
 In this project, I used python, pandas and sci kit learn. Python and pandas were used heavily to gather, prepare and 
 clean the data. While scikit learn was used to set up the models and hyperparameter tuning
