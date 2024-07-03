@@ -44,7 +44,7 @@ def run_model(x_train, x_test, y_train, y_test, model):
     return model
 
 
-def logistic_regression(x, y):
+def logistic_regression(x, y, column_names):
     # Scale data
     scaler = StandardScaler()
     x = scaler.fit_transform(x)
@@ -52,14 +52,14 @@ def logistic_regression(x, y):
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
 
     # Max_iter settings for saga solvers. Other models can go lower but saga solvers will through convergence errors
-    sag_max_iter_start = 1400
-    sag_max_iter_end = 4000
-    sag_max_iter_step = 200
+    sag_max_iter_start = 400
+    sag_max_iter_end = 1000
+    sag_max_iter_step = 100
 
     # Max_iter settings for sag, liblinear, newton-cholesky, newton-cg and lbfgs solvers
     max_iter_start = 100
-    max_iter_end = 1000
-    max_iter_step = 100
+    max_iter_end = 500
+    max_iter_step = 50
 
     # Best settings on 2020 - 2023 is {'max_iter': 150, 'penalty': 'l1', 'solver': 'liblinear'}
     # Best cross-validation score: 0.60
@@ -95,7 +95,7 @@ def logistic_regression(x, y):
             'penalty': ['l2', None],
             'l1_ratio': [None],
             'max_iter': range(max_iter_start, max_iter_end, max_iter_step)
-        },
+        }
     ]
 
     print("LogisticRegression")
@@ -108,7 +108,11 @@ def logistic_regression(x, y):
 
     model = run_model(x_train, x_test, y_train, y_test, model)
 
-    print(model.coef_, model.intercept_)
+    # Set up data frame so easier to understand what features are being used
+    d = pd.DataFrame({"COLUMN_NAMES": column_names, "COEFFICIENT": model.coef_[0]})
+    # Sort them by coefficients absolute value and then save
+    d = d.sort_values(["COEFFICIENT"], key=abs, ascending=False)
+    d.to_csv("data/models/Linear_Regression.csv", index=False)
 
 
 def random_forest(x, y):
@@ -123,7 +127,7 @@ def random_forest(x, y):
         'max_depth': list(range(20, 60, 20)),  # + [None],
         'max_features': ["sqrt", "log2", None],
         'min_samples_split': [2, 5, 10],
-        'min_samples_leaf': [1, 2, 3, 4],
+        'min_samples_leaf': [1, 4],
         'bootstrap': [True, False]
     }
     print("RandomForestClassifier")
@@ -151,7 +155,6 @@ def random_forest(x, y):
     run_model(x_train, x_test, y_train, y_test, model)
 
 
-
 def gradient_boosting(x, y):
     # Scale data
     scaler = StandardScaler()
@@ -161,11 +164,11 @@ def gradient_boosting(x, y):
     param_grid = {
         'loss': ["exponential", "log_loss"],
         'learning_rate': [0.3, 0.5, 0.7],
-        'n_estimators': list(range(50, 100, 50)),
+        'n_estimators': list(range(20, 60, 20)),
         'criterion': ["friedman_mse", "squared_error"],
         'min_samples_split': [2, 10],
         'min_samples_leaf': [1, 4],
-        'max_depth': [3, 7]  # [None]
+        'max_depth': [2, 3, 7]  # [None]
     }
     print("GradientBoostingClassifier")
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
@@ -255,7 +258,7 @@ def knn(x, y):
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
 
     param_grid = {
-        'n_neighbors': range(2, 20, 6),
+        'n_neighbors': range(2, 32, 6),
         'weights': ['uniform', 'distance'],
         'p': [1, 2],
         'algorithm': ['auto', 'ball_tree', 'kd_tree', 'brute']
@@ -286,13 +289,15 @@ def bet_on_home_team(results):
 
 
 def main():
-    x, y = gather_data_for_model(["2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023"])
+    # @TODO make it so that we get column names so that for things like logistic regression and random forest we can
+    #  easily know which columns they use
+    x, y, column_names = gather_data_for_model(["2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023"])
     print("If you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))
-    #logistic_regression(x, y)
+    logistic_regression(x, y, column_names)
+    #random_forest(x, y)
     #svc(x, y)
     #knn(x, y)
-    random_forest(x, y)
-    #gradient_boosting(x, y)
+    #(x, y)
 
 
 if __name__ == "__main__":

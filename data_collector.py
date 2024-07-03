@@ -501,13 +501,18 @@ def gather_data_for_model(years):
 
     # Convert parameters to numpy array
     invalid_cols = ["MATCHUP", "WINNER", "HOME_TEAM", "HOME_TEAM_WON"]
-    x = data.drop(columns=invalid_cols).to_numpy()
+    x = data.drop(columns=invalid_cols)
+    column_names = x.columns.to_list()
+    x = x.to_numpy()
 
     # Convert results to numpy array
     y = data["HOME_TEAM_WON"].to_numpy()
-    data.to_csv("data/data.csv", index=False)
 
-    return x, y
+    # Make sure folder is set up then save data
+    folder_check("data/models")
+    data.to_csv("data/models/data.csv", index=False)
+
+    return x, y, column_names
 
 
 
