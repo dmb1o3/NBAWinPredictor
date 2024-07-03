@@ -54,7 +54,7 @@ def logistic_regression(x, y, column_names):
     # Max_iter settings for saga solvers. Other models can go lower but saga solvers will through convergence errors
     sag_max_iter_start = 400
     sag_max_iter_end = 1000
-    sag_max_iter_step = 100
+    sag_max_iter_step = 50
 
     # Max_iter settings for sag, liblinear, newton-cholesky, newton-cg and lbfgs solvers
     max_iter_start = 100
@@ -188,68 +188,6 @@ def gradient_boosting(x, y):
     run_model(x_train, x_test, y_train, y_test, model)
 
 
-def svc(x, y):
-    # Scale data
-    scaler = StandardScaler()
-    x = scaler.fit_transform(x)
-
-    max_iter_start = -1  # -1 is unlimited
-    max_iter_end = 10
-    max_iter_step = 11
-
-    # Set up param grid
-    param_grid = [
-        {
-            'kernel': ["linear", "rbf", "sigmoid", "precomputed"],
-            'gamma': ["scale"],
-            'C': [0.5, 1, 1.5],
-            'degree': [3],
-            "coef0": [0.0],
-            'max_iter': range(max_iter_start, max_iter_end, max_iter_step)
-
-        },
-        {
-            'kernel': ["poly"],
-            'gamma': ["scale"],
-            'C': [0.5, 1, 1.5],
-            'degree': range(1, 5, 1),
-            "coef0": [0.0],
-            'max_iter': range(max_iter_start, max_iter_end, max_iter_step)
-        },
-        {
-            'kernel': ["poly", "rbf", "sigmoid"],
-            'gamma': ["scale", "auto", 0.3, 0.6],
-            'C': [0.5, 1, 1.5],
-            'degree': [3],
-            "coef0": [0.0],
-            'max_iter': range(max_iter_start, max_iter_end, max_iter_step)
-        },
-        {
-            'kernel': ["poly", "rbf", "sigmoid"],
-            'gamma': ["scale", "auto", 0.3, 0.6],
-            'C': [0.5, 1, 1.5],
-            'degree': [3],
-            "coef0": [0.1, 0.4, 0.7],
-            'max_iter': range(max_iter_start, max_iter_end, max_iter_step)
-        },
-
-    ]
-    print("SVC")
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
-    best_params = get_best_parameters(SVC(), param_grid, x_train, y_train)
-    best_kernel = best_params['kernel']
-    best_gamma = best_params['gamma']
-    best_C = best_params['C']
-    best_degree = best_params['degree']
-    best_coef0 = best_params['coef0']
-    best_max_iter= best_params['max_iter']
-
-    model = SVC(kernel=best_kernel, gamma=best_gamma, C=best_C, degree=best_degree, coef0=best_coef0,
-                max_iter=best_max_iter)
-
-    run_model(x_train, x_test, y_train, y_test, model)
-
-
 def knn(x, y):
     # Scale data
     scaler = StandardScaler()
@@ -291,13 +229,13 @@ def bet_on_home_team(results):
 def main():
     # @TODO make it so that we get column names so that for things like logistic regression and random forest we can
     #  easily know which columns they use
-    x, y, column_names = gather_data_for_model(["2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023"])
+    years_to_examine = ["2021", "2022", "2023"]
+    x, y, column_names = gather_data_for_model(years_to_examine)
     print("If you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))
     logistic_regression(x, y, column_names)
     #random_forest(x, y)
-    #svc(x, y)
     #knn(x, y)
-    #(x, y)
+    #gradient_boosting(x, y)
 
 
 if __name__ == "__main__":

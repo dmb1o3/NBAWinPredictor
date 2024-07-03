@@ -6,14 +6,14 @@ import shutil
 import time
 import numpy as np
 import pandas as pd
-import leauge_data as l_data
-import boxscore_data as b_data
+import league_data as l_data
+import box_score_data as b_data
 
 from threading import Lock
 from concurrent.futures import ThreadPoolExecutor
 
 # Global Variables
-NUM_CORES = os.cpu_count()  # Used to know how many threads to use
+NUM_CORES = os.cpu_count() + 4  # Used to know how many threads to use
 GAME_LOCK = Lock()  # Used to sync threads for saving data to gameProcessed
 GAME_PROCESSED = set()  # Saves data about game_ids we processed so threads don't do redundant work
 PLAYER_LOCK = Lock()  # Used to sync threads for saving data on playerProcessed
@@ -443,6 +443,7 @@ def save_league_data(year):
     # Might want to consider another threading option
     # For debugging does not seem to raise any errors even when there are some that stop function from working
     # Using schedule save data about players that played and their minutes
+    # @TODO Test and then possibly fix error where not all games get downloaded on first try.
     with ThreadPoolExecutor(max_workers=NUM_CORES) as executor:
         executor.map(lambda row: thread_save_game_data(year, row), schedule.itertuples(index=False))
 
