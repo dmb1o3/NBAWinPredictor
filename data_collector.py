@@ -157,11 +157,17 @@ def save_player_stats(schedule, year):
         # @TODO Check to see if this slices right seems to be off by an extra game. Stats seem fine but should check to
         games_not_processed = team_schedule[team][:GAMES_BACK + GAMES_BACK_BUFFER]
         # Loop through games not processed for a model so that we have accurate win streak for start of games we process
-        current_win_streak = 0
+        current_win_loss_streak = 0
         for winner in games_not_processed["WINNER"][::-1]:
             if winner != team:
-                break
-            current_win_streak += 1
+                if current_win_loss_streak > 0:
+                    break
+                current_win_loss_streak -= 1
+            else:
+                if current_win_loss_streak < 0:
+                    break
+                current_win_loss_streak += 1
+
 
         # Loop through team schedule
         for game in team_sch["GAME_ID"]:
@@ -172,17 +178,23 @@ def save_player_stats(schedule, year):
             if team_sch.loc[team_sch["GAME_ID"] == game]["HOME_TEAM"].values[0] == team:
                 columns = home_column_names
                 # Add win streak stat to schedule
-                schedule.loc[schedule["GAME_ID"] == game, "HOME_WIN_STREAK"] = current_win_streak
+                schedule.loc[schedule["GAME_ID"] == game, "HOME_WIN_STREAK"] = current_win_loss_streak
             else:
                 columns = away_column_names
                 # Add win streak stat to schedule
-                schedule.loc[schedule["GAME_ID"] == game, "AWAY_WIN_STREAK"] = current_win_streak
+                schedule.loc[schedule["GAME_ID"] == game, "AWAY_WIN_STREAK"] = current_win_loss_streak
 
-            # See if win streak continues
+            # Update win/loss streak
             if schedule.loc[schedule["GAME_ID"] == game]["WINNER"].values[0] == team:
-                current_win_streak += 1
+                if current_win_loss_streak > 0:
+                    current_win_loss_streak += 1
+                else:
+                    current_win_loss_streak = 1
             else:
-                current_win_streak = 0
+                if current_win_loss_streak < 0:
+                    current_win_loss_streak -= 1
+                else:
+                    current_win_loss_streak = -1
 
             # Add players stats to schedule
             for i in range(0, NUM_PLAYER_PER_TEAM):
