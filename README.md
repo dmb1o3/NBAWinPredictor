@@ -45,7 +45,8 @@ Done using data from 2020 - 2023, 5 players per team, 5 games back, 2 game buffe
 Highest Accuracy: 0.65
 Mean squared error: 0.35
 Cross-validation score: 0.63
-Parameters: {'bootstrap': True, 'criterion': 'log_loss', 'max_depth': 20, 'max_features': 'sqrt', 'min_samples_leaf': 4, 'min_samples_split': 2, 'n_estimators': 40}
+Parameters: {'bootstrap': True, 'criterion': 'log_loss', 'max_depth': 20, 'max_features': 'sqrt', 
+             'min_samples_leaf': 4, 'min_samples_split': 2, 'n_estimators': 40}
 Done using data from 2020 - 2023, 5 players per team, 5 games back, 2 game buffer 
 ```
 
@@ -65,7 +66,8 @@ Done using data from 2020 - 2023, 5 players per team, 5 games back, 2 game buffe
 Highest Accuracy: 0.63
 Mean squared error: 0.37
 Cross-validation score: 0.62
-Parameters: {'criterion': 'friedman_mse', 'learning_rate': 0.3, 'loss': 'exponential', 'max_depth': 3, 'min_samples_leaf': 4, 'min_samples_split': 10, 'n_estimators': 40}
+Parameters: {'criterion': 'friedman_mse', 'learning_rate': 0.3, 'loss': 'exponential', 
+             'max_depth': 3, 'min_samples_leaf': 4, 'min_samples_split': 10, 'n_estimators': 40}
 Done using data from 2020 - 2023, 5 players per team, 5 games back, 2 game buffer 
 ```
 
