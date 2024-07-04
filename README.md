@@ -1,6 +1,4 @@
-# NBA Win Predictor
-
-## __Description__ 
+# Description of NBA Win Predictor
 This was a project built to explore machine learning models using something I'm interested in. 
 I am a huge Clippers fan who has been following the NBA for the last couple of years and thought it would help me
 learn more about data science and the NBA. This project is still a work in progress, however, it is at a usable point if you
