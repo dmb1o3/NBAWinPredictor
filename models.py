@@ -78,12 +78,12 @@ def logistic_regression(x, y, features):
 
     # Max_iter settings for saga solvers. Other models can go lower but saga solvers will through convergence errors
     sag_max_iter_start = 500
-    sag_max_iter_end = 2000
+    sag_max_iter_end = 2400
     sag_max_iter_step = 100
 
     # Max_iter settings for sag, liblinear, newton-cholesky, newton-cg and lbfgs solvers
     max_iter_start = 100
-    max_iter_end = 600
+    max_iter_end = 800
     max_iter_step = 50
 
     # Best settings on 2020 - 2023 is {'max_iter': 150, 'penalty': 'l1', 'solver': 'liblinear'}
@@ -149,7 +149,7 @@ def random_forest(x, y):
     param_grid = {
         'n_estimators': range(10, 50, 10),
         'criterion': ["gini", "entropy", "log_loss"],
-        'max_depth': list(range(20, 60, 20)),  # + [None],
+        'max_depth': list(range(20, 160, 20)),  # + [None],
         'max_features': ["sqrt", "log2"],  # , None],
         'min_samples_split': [2, 5, 10],
         'min_samples_leaf': [1, 4],
@@ -191,7 +191,7 @@ def gradient_boosting(x, y):
     param_grid = {
         'loss': ["exponential", "log_loss"],
         'learning_rate': [0.3, 0.5, 0.7],
-        'n_estimators': list(range(20, 60, 20)),
+        'n_estimators': list(range(20, 300, 20)),
         'criterion': ["friedman_mse", "squared_error"],
         'min_samples_split': [2, 5, 10],
         'min_samples_leaf': [1, 4],
@@ -267,15 +267,16 @@ def main():
 
     # Ask user if they would like to use default or set their own
     print("Do you want to use current years or input new years? (Enter number of choice)")
-    print(years_to_examine)
-    print("1. Yes")
-    print("2. No")
+    print("Current years: " + str(years_to_examine))
+    print("1. Use current years")
+    print("2. Input new years")
     set_new_years_examine = input("")
     # If they would like to set their own change to desired years
-    if set_new_years_examine == "1":
+    if set_new_years_examine == "2":
         years_to_examine = input("What years would you like to examine? If multiple just type them with a space like "
                                  "\"2020 2021 2022\" ").split()
 
+    print("Collecting data for years: " + str(years_to_examine))
     # Get data, target values and features of data
     x, y, features = gather_data_for_model(years_to_examine)
 
