@@ -29,10 +29,45 @@ This file is used to both download and/or prepare the data.
 ### models.py
 This file contains the scikit learn models implemented with hyperparameter tuning. To change what years of data the 
 model looks at change the variable years_to_examine at the top of the main function.
-1. logistic_regression 
-2. random_forest
-3. knn
-4. gradient boosting
+#### 1. Logistic Regression
+
+```
+Highest Accuracy: 0.65
+Mean squared error: 0.35
+Cross-validation score: 0.60
+Parameters: {'max_iter': 150, 'penalty': 'l1', 'solver': 'liblinear'}
+Done using data from 2020 - 2023, 5 players per team, 5 games back, 2 game buffer 
+```
+
+#### 2. Random Forest
+
+```
+Highest Accuracy: 0.65
+Mean squared error: 0.35
+Cross-validation score: 0.63
+Parameters: {'bootstrap': True, 'criterion': 'log_loss', 'max_depth': 20, 'max_features': 'sqrt', 'min_samples_leaf': 4, 'min_samples_split': 2, 'n_estimators': 40}
+Done using data from 2020 - 2023, 5 players per team, 5 games back, 2 game buffer 
+```
+
+#### 3. KNN
+
+```
+Highest Accuracy: 0.62
+Mean squared error: 0.38
+Cross-validation score: 0.59
+Parameters: {'algorithm': 'auto', 'n_neighbors': 26, 'p': 2, 'weights': 'distance'}
+Done using data from 2020 - 2023, 5 players per team, 5 games back, 2 game buffer 
+```
+
+#### 4. Gradient Boosting
+
+```
+Highest Accuracy: 0.63
+Mean squared error: 0.37
+Cross-validation score: 0.62
+Parameters: {'criterion': 'friedman_mse', 'learning_rate': 0.3, 'loss': 'exponential', 'max_depth': 3, 'min_samples_leaf': 4, 'min_samples_split': 10, 'n_estimators': 40}
+Done using data from 2020 - 2023, 5 players per team, 5 games back, 2 game buffer 
+```
 
 
 ### league_data.py

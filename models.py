@@ -123,7 +123,7 @@ def logistic_regression(x, y, features):
         }
     ]
 
-    print("LogisticRegression")
+    print("\nLogisticRegression")
     best_params = get_best_parameters(LogisticRegression(), param_grid, x_train, y_train)
     best_solver = best_params['solver']
     best_penalty = best_params['penalty']
@@ -155,7 +155,7 @@ def random_forest(x, y):
         'min_samples_leaf': [1, 4],
         'bootstrap': [True, False]
     }
-    print("RandomForestClassifier")
+    print("\nandomForestClassifier")
     # Set up data for testing and training
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
 
@@ -197,7 +197,7 @@ def gradient_boosting(x, y):
         'min_samples_leaf': [1, 4],
         'max_depth': [2, 3, 7]  # [None]
     }
-    print("GradientBoostingClassifier")
+    print("\nGradientBoostingClassifier")
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
     best_params = get_best_parameters(GradientBoostingClassifier(), param_grid, x_train, y_train)
     best_loss = best_params['loss']
@@ -228,7 +228,7 @@ def knn(x, y):
         'p': [1, 2],
         'algorithm': ['auto', 'ball_tree', 'kd_tree', 'brute']
     }
-    print("KNN")
+    print("\nKNN")
     # Get best parameters for model
     best_params = get_best_parameters(KNeighborsClassifier(), param_grid, x_train, y_train)
 
