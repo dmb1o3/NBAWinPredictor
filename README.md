@@ -21,6 +21,7 @@ This file is used to both download and/or prepare the data.
 
 [ADD DIAGRAM SHOWING DATA PROCESSING]
 
+![Leauge Schedule Diagram.svg](Leauge%20Schedule%20Diagram.svg)
 
 ### models.py
 This file contains the scikit learn models implemented with hyperparameter tuning. To change what years of data the 
