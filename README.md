@@ -19,9 +19,12 @@ With my best results coming from the 2020 to 2023 season of 65% accuracy with lo
 ### data_collector.py
 This file is used to both download and/or prepare the data. 
 
-[ADD DIAGRAM SHOWING DATA PROCESSING]
-
+#### Downloading Data
 ![Leauge Schedule Diagram.svg](README%20Diagrams%2FDownload%20Diagram.svg)
+
+#### Preparing Data
+[ADD DIAGRAM SHOWING DATA PROCESSING AFTER DOWNLOAD]
+
 
 ### models.py
 This file contains the scikit learn models implemented with hyperparameter tuning. To change what years of data the 
