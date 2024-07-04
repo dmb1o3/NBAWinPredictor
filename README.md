@@ -84,7 +84,15 @@ This file is used to easily pull data from NBA API. Specifically, it is used to 
 stats like minutes played, points, rebounds and more for all playes who played from both teams that played.
 
 
-## Installation and Running Program
+## Installation
+### Python
+This program requires python 3.9 or greater. I would recommend using conda to create a virtual enviroment
+[Link to install conda](https://developers.google.com/earth-engine/guides/python_install-conda)
+1. conda create --name envName python=3.9
+2. conda activate envName
+
+
+### Requirements and Running Program
 1. Download repository
 2. Install requirements using "pip install -r requirements.txt" 
 3. Run data_collector.py
