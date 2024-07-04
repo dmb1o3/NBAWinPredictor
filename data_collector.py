@@ -528,8 +528,6 @@ def gather_data_for_model(years):
     return x, y, column_names
 
 
-
-
 def main():
     # Get information from user, so we know what seasons to download and/or prepare data for
     # Also asks user if they already have data downloaded, so we can skip download and skip to preparing that data

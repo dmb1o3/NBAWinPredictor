@@ -11,17 +11,27 @@ from sklearn.preprocessing import StandardScaler
 from data_collector import gather_data_for_model
 from sklearn.pipeline import Pipeline
 
-
 # https://www.youtube.com/watch?v=egTylm6C2is
 
 
 def get_best_parameters(model, param_grid, x_train, y_train):
-    grid_search = GridSearchCV(model, param_grid, cv=5)
+    """
+    Uses GridSearchCV to find optimal parameters for a model
+
+    :param model: Scikit learn model we would like to test
+    :param param_grid: A dictionary or list of dictionaries containing parameters for model to test
+    :param x_train: 1d Array containing training data
+    :param y_train: 1d Array contain target values for training data
+    :return: Returns dictionary containing the best configuration of parameters based on param_grid
+    """
+
+    # Test model
+    grid_search = GridSearchCV(model, param_grid)
     grid_search.fit(x_train, y_train)
 
+    # Print out the best parameters for a model
     best_params = grid_search.best_params_
     best_score = grid_search.best_score_
-
     print(f"Best parameters: {best_params}")
     print(f"Best cross-validation score: {best_score:.2f}")
 
@@ -29,11 +39,25 @@ def get_best_parameters(model, param_grid, x_train, y_train):
 
 
 def run_model(x_train, x_test, y_train, y_test, model):
+    """
+    Will run model on data given
+
+    :param x_train: Array containing training data
+    :param x_test:  Array containing testing data
+    :param y_train: Array containing target values for training data
+    :param y_test:  Array containing target values for testing data
+    :param model:   Scikit-learn model to run on data
+    :return:        Returns scikit-learn model after being trained and tested
+    """
+    # Train model
     model.fit(x_train, y_train)
+    # Test model
     y_pred = model.predict(x_test)
+
+    # Get and print accuracy and mean squared error
     accuracy = accuracy_score(y_test, y_pred)
-    print(f"Accuracy: {accuracy:.2f}")
     mse = mean_squared_error(y_test, y_pred)
+    print(f"Accuracy: {accuracy:.2f}")
     print(f"Mean squared error: {mse:.2f}")
     """
     # Example of printing predictions
@@ -41,10 +65,11 @@ def run_model(x_train, x_test, y_train, y_test, model):
     for i in range(len(x_test)):
         print(f"Features: {x_test[i]}, Actual: {y_test[i]}, Predicted: {y_pred[i]}")
     """
+
     return model
 
 
-def logistic_regression(x, y, column_names):
+def logistic_regression(x, y, features):
     # Scale data
     scaler = StandardScaler()
     x = scaler.fit_transform(x)
@@ -52,13 +77,13 @@ def logistic_regression(x, y, column_names):
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
 
     # Max_iter settings for saga solvers. Other models can go lower but saga solvers will through convergence errors
-    sag_max_iter_start = 400
-    sag_max_iter_end = 1000
-    sag_max_iter_step = 50
+    sag_max_iter_start = 500
+    sag_max_iter_end = 2000
+    sag_max_iter_step = 100
 
     # Max_iter settings for sag, liblinear, newton-cholesky, newton-cg and lbfgs solvers
     max_iter_start = 100
-    max_iter_end = 500
+    max_iter_end = 600
     max_iter_step = 50
 
     # Best settings on 2020 - 2023 is {'max_iter': 150, 'penalty': 'l1', 'solver': 'liblinear'}
@@ -109,7 +134,7 @@ def logistic_regression(x, y, column_names):
     model = run_model(x_train, x_test, y_train, y_test, model)
 
     # Set up data frame so easier to understand what features are being used
-    d = pd.DataFrame({"COLUMN_NAMES": column_names, "COEFFICIENT": model.coef_[0]})
+    d = pd.DataFrame({"FEATURES": features, "COEFFICIENT": model.coef_[0]})
     # Sort them by coefficients absolute value and then save
     d = d.sort_values(["COEFFICIENT"], key=abs, ascending=False)
     d.to_csv("data/models/Linear_Regression.csv", index=False)
@@ -122,10 +147,10 @@ def random_forest(x, y):
 
     # Set up param_grid for hyperparameter tuning
     param_grid = {
-        'n_estimators': range(10, 30, 10),
+        'n_estimators': range(10, 50, 10),
         'criterion': ["gini", "entropy", "log_loss"],
         'max_depth': list(range(20, 60, 20)),  # + [None],
-        'max_features': ["sqrt", "log2", None],
+        'max_features': ["sqrt", "log2"],  # , None],
         'min_samples_split': [2, 5, 10],
         'min_samples_leaf': [1, 4],
         'bootstrap': [True, False]
@@ -150,8 +175,10 @@ def random_forest(x, y):
                                    min_samples_leaf=best_min_samples_leaf, bootstrap=best_bootstrap)
     model.fit(x_train, y_train)
     # @TODO extract features used from RF
-    selected_features = x.columns[model.support_]
+    """
+    selected_features = model.decision_path(x_train)
     print(selected_features)
+    """
     run_model(x_train, x_test, y_train, y_test, model)
 
 
@@ -166,7 +193,7 @@ def gradient_boosting(x, y):
         'learning_rate': [0.3, 0.5, 0.7],
         'n_estimators': list(range(20, 60, 20)),
         'criterion': ["friedman_mse", "squared_error"],
-        'min_samples_split': [2, 10],
+        'min_samples_split': [2, 5, 10],
         'min_samples_leaf': [1, 4],
         'max_depth': [2, 3, 7]  # [None]
     }
@@ -196,7 +223,7 @@ def knn(x, y):
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
 
     param_grid = {
-        'n_neighbors': range(2, 32, 6),
+        'n_neighbors': range(2, 44, 6),
         'weights': ['uniform', 'distance'],
         'p': [1, 2],
         'algorithm': ['auto', 'ball_tree', 'kd_tree', 'brute']
@@ -216,6 +243,14 @@ def knn(x, y):
 
 
 def bet_on_home_team(results):
+    """
+    Given the results will calculate the odds of winning by betting on the home team. It does this by calculating all
+    the wins, indicated by a 1, and dividing by the number of games played.
+
+    :param results: An array with results of games 1 indicating a win
+    :return: Will return a string with the float value calculated. 55% will return 0.55
+    """
+
     # Get number of wins
     home_team_wins = 0
     for result in results:
@@ -227,15 +262,31 @@ def bet_on_home_team(results):
 
 
 def main():
-    # @TODO make it so that we get column names so that for things like logistic regression and random forest we can
-    #  easily know which columns they use
-    years_to_examine = ["2021", "2022", "2023"]
-    x, y, column_names = gather_data_for_model(years_to_examine)
+    # Default years to use as data
+    years_to_examine = ["2020", "2021", "2022", "2023"]
+
+    # Ask user if they would like to use default or set their own
+    print("Do you want to use current years or input new years? (Enter number of choice)")
+    print(years_to_examine)
+    print("1. Yes")
+    print("2. No")
+    set_new_years_examine = input("")
+    # If they would like to set their own change to desired years
+    if set_new_years_examine == "1":
+        years_to_examine = input("What years would you like to examine? If multiple just type them with a space like "
+                                 "\"2020 2021 2022\" ").split()
+
+    # Get data, target values and features of data
+    x, y, features = gather_data_for_model(years_to_examine)
+
+    # Find out the baseline by calculating odds home team win
     print("If you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))
-    logistic_regression(x, y, column_names)
-    #random_forest(x, y)
-    #knn(x, y)
-    #gradient_boosting(x, y)
+
+    # Run models
+    logistic_regression(x, y, features)
+    random_forest(x, y)
+    knn(x, y)
+    gradient_boosting(x, y)
 
 
 if __name__ == "__main__":
