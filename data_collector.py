@@ -414,17 +414,20 @@ def thread_save_game_data(year, row):
     # Get data from row tuple
     game_id = row.GAME_ID
     matchup = row.MATCHUP
+
     # Check to make sure thread is not saving game we already saved
     with GAME_LOCK:
         if game_id in GAME_PROCESSED:
             return
         game_data = get_game_data(game_id)
         GAME_PROCESSED.add(game_id)
+
     # Get game data
     home_team = matchup[0:3]
     away_team = matchup[-3:]
     home_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(home_team)]
     away_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(away_team)]
+
     # Make sure we have folder to save to
     directory = os.getcwd() + "/data/games/" + year
     home_directory = directory + "/" + home_team + "/"
@@ -461,9 +464,6 @@ def save_league_data(year):
 
     # Save players stats
     save_player_stats(schedule, year)
-
-    # Using data from the stats we need to append to our schedule data frame
-    game_ids = schedule["GAME_ID"].tolist()
 
 
 def get_all_data(years, data_is_downloaded):
@@ -529,6 +529,7 @@ def gather_data_for_model(years):
 
 
 def main():
+    # @TODO Maybe add in start_position along with stats so we know what postion best players play
     # Get information from user, so we know what seasons to download and/or prepare data for
     # Also asks user if they already have data downloaded, so we can skip download and skip to preparing that data
     years = input("What years would you like to download/prepare? If multiple just type them with a space like \"2020 "
