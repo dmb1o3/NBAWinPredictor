@@ -104,7 +104,7 @@ def set_up_columns(schedule, home_columns):
     return schedule
 
 
-def save_player_stats(schedule, year):
+def prepare_data(schedule, year):
     """
     Given a schedule for a given nba season and the year of that schedule will go through the season team by team,
     collect player stats, average them based on GAMES_BACK, and then add NUM_PLAYERS_PER_TEAM of stats for home and
@@ -124,7 +124,7 @@ def save_player_stats(schedule, year):
     # Set up column names so that we can more easily add averaged data later on
     stats = ["PLAYER_ID", "MIN", "FGA", "FG_PCT", "FG3A", "FG3_PCT", "FTA", "FT_PCT", "OREB", "DREB", "AST", "STL",
              "BLK", "TO", "PF", "PTS", "PLUS_MINUS"]
-    column_prefix = "Player_"
+    column_prefix = "PLAYER_"
     home_column_names = make_column_names("HOME_" + column_prefix, stats)
     away_column_names = make_column_names("AWAY_" + column_prefix, stats)
     schedule = set_up_columns(schedule, [["HOME_WIN_STREAK"]] + home_column_names)
@@ -144,7 +144,7 @@ def save_player_stats(schedule, year):
         # For each team get their schedule
         team_schedule[team] = schedule[schedule['MATCHUP'].str.contains(team)][["GAME_ID", "GAME_DATE", "HOME_TEAM", "WINNER"]]
         # Average player_stats and save all player ids for players who played on team
-        team_dataframes[team] = average_and_save_player_stats(team_schedule[team][["GAME_ID", "GAME_DATE"]], team, year)
+        team_dataframes[team] = save_player_stats(team_schedule[team][["GAME_ID", "GAME_DATE"]], team, year)
 
     # Now that we have player stats, we can go through the season team by team again.
     # The reason this cannot be done in the same loop above is that we need to wait until all teams have run so a
@@ -215,7 +215,7 @@ def save_player_stats(schedule, year):
                     " GAMES_BUFFER = " + str(GAMES_BACK_BUFFER) + ").csv", index=False)
 
 
-def average_and_save_player_stats(team_schedule, team_abbrev, year):
+def save_player_stats(team_schedule, team_abbrev, year):
     """
     When called will look at all games a team played from the given schedule. It will then make dataframes for each
     player combining all of their stats for that schedule. It will average their stats over a number of games set by
@@ -399,11 +399,8 @@ def thread_save_game_data(year, row):
     """
     Expected to be called by multiple threads but not necessary. Will save data for a given GAME_ID (from row) and also
     save career stats of all players who played in game. This functions uses get_game_data() to get data on players in
-    the game and save_player_data() to get and save career stats of player
-    get data. It saves game data it gets to
+    the game It saves game data it gets to
     .../data/games/YEAR/GAME_ID/TEAM_ABBREVIATION/minutes.csv
-    and saves player data to
-    .../data/careerStats/PLAYER_ID/careerRegularSeasonStats.csv
 
     :param year: String with year game was played. Used to know what folder to save data to
     :param row: Tuple expected to contain a GAME_ID value and MATCHUP value.
@@ -442,9 +439,7 @@ def thread_save_game_data(year, row):
 def save_league_data(year):
     """
     Saves all data needed for model for given year. Uses save_league_schedule() to get league schedule for given year
-    and then feeds the given dataframe to thread_save_game_data() to process and save. After that runs
-    save_player_data() which will go through the game data and get averages going b
-
+    and then feeds the given dataframe to thread_save_game_data() to process and save.
     :param year: String with year we want data for
     :return: Does not return anything
     """
@@ -463,7 +458,7 @@ def save_league_data(year):
         executor.map(lambda row: thread_save_game_data(year, row), schedule.itertuples(index=False))
 
     # Save players stats
-    save_player_stats(schedule, year)
+    prepare_data(schedule, year)
 
 
 def get_all_data(years, data_is_downloaded):
@@ -483,7 +478,7 @@ def get_all_data(years, data_is_downloaded):
         start_time = time.time()
         print("Starting for NBA season " + year)
         if data_is_downloaded:
-            save_player_stats(pd.read_csv("data/games/" + year + "/schedule.csv", dtype={'GAME_ID': str}), year)
+            prepare_data(pd.read_csv("data/games/" + year + "/schedule.csv", dtype={'GAME_ID': str}), year)
         else:
             save_league_data(year)
         print("Finished took " + str((time.time() - start_time) / 60) + " minutes")

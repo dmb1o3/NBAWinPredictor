@@ -8,6 +8,7 @@ from sklearn.preprocessing import StandardScaler
 from data_collector import gather_data_for_model
 from sklearn.pipeline import Pipeline
 
+
 # https://www.youtube.com/watch?v=egTylm6C2is
 
 # @TODO implement sequential feature selection and test out
@@ -139,7 +140,7 @@ def logistic_regression(x, y, features):
     d = pd.DataFrame({"FEATURES": features, "COEFFICIENT": model.coef_[0]})
     # Sort them by coefficients absolute value and then save
     d = d.sort_values(["COEFFICIENT"], key=abs, ascending=False)
-    d.to_csv("data/models/Linear_Regression.csv", index=False)
+    d.to_csv("data/models/Linear_Regression_Features_COEF.csv", index=False)
 
 
 def ridge_classification(x, y, features):
@@ -151,7 +152,13 @@ def ridge_classification(x, y, features):
 
     param_grid = [
         {
-            'solver': ["auto", "svd", "cholesky", "lsqr", "sparse_cg", "sag", "saga"],
+            'solver': ["sag", "saga"],
+            'alpha': [0.1, 0.5, 1.5],
+            'max_iter': range(800, 1600, 100),
+            'positive': [False],
+        },
+        {
+            'solver': ["auto", "svd", "cholesky", "lsqr", "sparse_cg"],
             'alpha': [0.1, 0.5, 1.5],
             'max_iter': range(100, 1000, 100),
             'positive': [False],
@@ -179,7 +186,7 @@ def ridge_classification(x, y, features):
     d = pd.DataFrame({"FEATURES": features, "COEFFICIENT": model.coef_[0]})
     # Sort them by coefficients absolute value and then save
     d = d.sort_values(["COEFFICIENT"], key=abs, ascending=False)
-    d.to_csv("data/models/Ridge_Regression.csv", index=False)
+    d.to_csv("data/models/Ridge_Classifier_Features_COEF.csv", index=False)
 
 
 def random_forest(x, y):

@@ -21,8 +21,7 @@ This file is used to both download and/or prepare the data.
 ![Leauge Schedule Diagram.svg](README%20Diagrams%2FDownload%20Diagram.svg)
 
 #### Preparing Data
-[ADD DIAGRAM SHOWING DATA PROCESSING AFTER DOWNLOAD]
-
+![Preparing Data Diagram.svg](README%20Diagrams%2FPreparing%20Data%20Diagram.svg)
 
 ### models.py
 This file contains the scikit learn models implemented with hyperparameter tuning. To change what years of data the 
@@ -55,7 +54,7 @@ Home Team Lost       0.62      0.46      0.52       776
   weighted avg       0.63      0.63      0.62      1754
 ```
 
-#### 2. Random Forest
+#### 3. Random Forest
 
 ```
 Highest Accuracy: 0.65
@@ -66,7 +65,7 @@ Parameters: {'bootstrap': True, 'criterion': 'log_loss', 'max_depth': 20, 'max_f
 Done using data from 2020 - 2023, 5 players per team, 5 games back, 2 game buffer 
 ```
 
-#### 3. KNN
+#### 4. KNN
 
 ```
 Highest Accuracy: 0.62
@@ -76,7 +75,7 @@ Parameters: {'algorithm': 'auto', 'n_neighbors': 26, 'p': 2, 'weights': 'distanc
 Done using data from 2020 - 2023, 5 players per team, 5 games back, 2 game buffer 
 ```
 
-#### 4. Gradient Boosting
+#### 5. Gradient Boosting
 
 ```
 Highest Accuracy: 0.63
@@ -106,7 +105,7 @@ stats like minutes played, points, rebounds and more for all playes who played f
 ### Python
 This program requires python 3.9 or greater. I would recommend using conda to create a virtual enviroment
 
-[Link to a Guide to install conda](https://developers.google.com/earth-engine/guides/python_install-conda)
+[Link to a guide to install conda](https://developers.google.com/earth-engine/guides/python_install-conda)
 1. conda create --name envName python=3.9
 2. conda activate envName
 
