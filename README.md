@@ -36,6 +36,24 @@ Cross-validation score: 0.60
 Parameters: {'max_iter': 150, 'penalty': 'l1', 'solver': 'liblinear'}
 Done using data from 2020 - 2023, 5 players per team, 5 games back, 2 game buffer 
 ```
+#### 2. Ridge Classifier
+
+```
+Best cross-validation score: 0.62
+Accuracy: 0.63
+Mean squared error: 0.37
+Best parameters: {'alpha': 0.1, 'max_iter': 100, 'positive': False, 'solver': 'auto'}
+Done using data from 2016 - 2023, 3 players per team, 4 games back, 2 game buffer
+   
+                precision    recall  f1-score   support
+
+Home Team Lost       0.62      0.46      0.52       776
+ Home Team Won       0.64      0.77      0.70       978
+
+      accuracy                           0.63      1754
+     macro avg       0.63      0.62      0.61      1754
+  weighted avg       0.63      0.63      0.62      1754
+```
 
 #### 2. Random Forest
 
@@ -88,7 +106,7 @@ stats like minutes played, points, rebounds and more for all playes who played f
 ### Python
 This program requires python 3.9 or greater. I would recommend using conda to create a virtual enviroment
 
-[Link to install conda](https://developers.google.com/earth-engine/guides/python_install-conda)
+[Link to a Guide to install conda](https://developers.google.com/earth-engine/guides/python_install-conda)
 1. conda create --name envName python=3.9
 2. conda activate envName
 

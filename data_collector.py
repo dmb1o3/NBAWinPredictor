@@ -20,8 +20,8 @@ PLAYER_LOCK = Lock()  # Used to sync threads for saving data on playerProcessed
 PLAYER_PROCESSED = set()  # Saves data about player_ids we processed so threads don't do redundant work
 
 # Global Settings for data collection
-NUM_PLAYER_PER_TEAM = 5  # Number of players per team that we should save stats for
-GAMES_BACK = 5  # Number of games to go back for rolling average. Must be greater than or equal to 1
+NUM_PLAYER_PER_TEAM = 3  # Number of players per team that we should save stats for
+GAMES_BACK = 4  # Number of games to go back for rolling average. Must be greater than or equal to 1
 GAMES_BACK_BUFFER = 2  # Buffer to help some teams as in some season they struggle in beginning
 
 

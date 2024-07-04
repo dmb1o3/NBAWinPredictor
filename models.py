@@ -1,10 +1,7 @@
-import numpy as np
 import pandas as pd
-from sklearn.neighbors import NearestNeighbors
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, RidgeClassifier
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
-from sklearn.svm import SVC
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import accuracy_score, mean_squared_error, classification_report
 from sklearn.preprocessing import StandardScaler
@@ -13,6 +10,8 @@ from sklearn.pipeline import Pipeline
 
 # https://www.youtube.com/watch?v=egTylm6C2is
 
+# @TODO implement sequential feature selection and test out
+# @TODO add way to save and compare model stats based on years used, setttings for years and settings for model probaly some type of chart
 
 def get_best_parameters(model, param_grid, x_train, y_train):
     """
@@ -32,6 +31,7 @@ def get_best_parameters(model, param_grid, x_train, y_train):
     # Print out the best parameters for a model
     best_params = grid_search.best_params_
     best_score = grid_search.best_score_
+
     print(f"Best parameters: {best_params}")
     print(f"Best cross-validation score: {best_score:.2f}")
 
@@ -54,18 +54,20 @@ def run_model(x_train, x_test, y_train, y_test, model):
     # Test model
     y_pred = model.predict(x_test)
 
-    # Get and print accuracy and mean squared error
+    # Get and print accuracy, mean squared error and classification report
     accuracy = accuracy_score(y_test, y_pred)
     mse = mean_squared_error(y_test, y_pred)
+    class_report = classification_report(y_test, y_pred, target_names=["Home Team Lost", "Home Team Won"])
     print(f"Accuracy: {accuracy:.2f}")
     print(f"Mean squared error: {mse:.2f}")
-    """
-    # Example of printing predictions
-    print("Predictions:")
-    for i in range(len(x_test)):
-        print(f"Features: {x_test[i]}, Actual: {y_test[i]}, Predicted: {y_pred[i]}")
-    """
+    print(class_report)
 
+    """
+    # Printing predictions
+    print("Predictions:")
+    for i in range(0, 10):
+        print(f"Actual: {y_test[i]}, Predicted: {y_pred[i]}")
+    """
     return model
 
 
@@ -78,12 +80,12 @@ def logistic_regression(x, y, features):
 
     # Max_iter settings for saga solvers. Other models can go lower but saga solvers will through convergence errors
     sag_max_iter_start = 500
-    sag_max_iter_end = 2400
-    sag_max_iter_step = 100
+    sag_max_iter_end = 1500
+    sag_max_iter_step = 50
 
     # Max_iter settings for sag, liblinear, newton-cholesky, newton-cg and lbfgs solvers
     max_iter_start = 100
-    max_iter_end = 800
+    max_iter_end = 1000
     max_iter_step = 50
 
     # Best settings on 2020 - 2023 is {'max_iter': 150, 'penalty': 'l1', 'solver': 'liblinear'}
@@ -140,6 +142,46 @@ def logistic_regression(x, y, features):
     d.to_csv("data/models/Linear_Regression.csv", index=False)
 
 
+def ridge_classification(x, y, features):
+    # Scale data
+    scaler = StandardScaler()
+    x = scaler.fit_transform(x)
+
+    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
+
+    param_grid = [
+        {
+            'solver': ["auto", "svd", "cholesky", "lsqr", "sparse_cg", "sag", "saga"],
+            'alpha': [0.1, 0.5, 1.5],
+            'max_iter': range(100, 1000, 100),
+            'positive': [False],
+        },
+        {
+            'solver': ["lbfgs"],
+            'alpha': [0.1, 0.5, 1.5],
+            'max_iter': range(50, 500, 50),
+            'positive': [True],
+
+        }
+    ]
+
+    print("\nRidge Classifier")
+    best_params = get_best_parameters(RidgeClassifier(), param_grid, x_train, y_train)
+    best_solver = best_params['solver']
+    best_alpha = best_params['alpha']
+    best_max_iter = best_params['max_iter']
+    best_positive = best_params['positive']
+    model = RidgeClassifier(solver=best_solver, alpha=best_alpha, max_iter=best_max_iter, positive=best_positive)
+
+    model = run_model(x_train, x_test, y_train, y_test, model)
+
+    # Set up data frame so easier to understand what features are being used
+    d = pd.DataFrame({"FEATURES": features, "COEFFICIENT": model.coef_[0]})
+    # Sort them by coefficients absolute value and then save
+    d = d.sort_values(["COEFFICIENT"], key=abs, ascending=False)
+    d.to_csv("data/models/Ridge_Regression.csv", index=False)
+
+
 def random_forest(x, y):
     # Scale data
     scaler = StandardScaler()
@@ -155,7 +197,7 @@ def random_forest(x, y):
         'min_samples_leaf': [1, 4],
         'bootstrap': [True, False]
     }
-    print("\nandomForestClassifier")
+    print("\nRandomForestClassifier")
     # Set up data for testing and training
     x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
 
@@ -284,6 +326,7 @@ def main():
     print("If you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))
 
     # Run models
+    ridge_classification(x, y, features)
     logistic_regression(x, y, features)
     random_forest(x, y)
     knn(x, y)
