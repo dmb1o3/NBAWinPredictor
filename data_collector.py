@@ -1,5 +1,4 @@
 # This is a file to collect data using an NBA API for a given season
-# Uses code from this repo https://github.com/swar/nba_api
 
 import os
 import shutil
@@ -8,7 +7,6 @@ import numpy as np
 import pandas as pd
 import league_data as l_data
 import box_score_data as b_data
-
 from threading import Lock
 from concurrent.futures import ThreadPoolExecutor
 
@@ -21,8 +19,46 @@ PLAYER_PROCESSED = set()  # Saves data about player_ids we processed so threads 
 
 # Global Settings for data collection
 NUM_PLAYER_PER_TEAM = 3  # Number of players per team that we should save stats for
-GAMES_BACK = 4  # Number of games to go back for rolling average. Must be greater than or equal to 1
+GAMES_BACK = 15  # Number of games to go back for rolling average. Must be greater than or equal to 1
+GAMES_BACK_TEAM_V_TEAM = 4  # Number of games to go back for rolling average. Must be greater than or equal to 1
 GAMES_BACK_BUFFER = 2  # Buffer to help some teams as in some season they struggle in beginning
+
+
+def dash_to_individual(years):
+    """
+    Function that when called will return a list of strings with years between two years defined by a dash.
+    Input = "2013-2016", Output = ["2013", "2014", "2015", "2016']
+    Input = "2016-2013", Output = ["2016", "2015", "2014", "2013']
+    Input = "2016-2016", Output = ["2016"]
+
+    :param years: String formatted as start_date-end_date i.e. 2020-2023, 2023-2020
+    :return: Returns a list of strings with years between and including
+    """
+    # Split up string by dash
+    years = years.split("-")
+    # Set start to integer value so we can easily get next value
+    start = int(years[0])
+    # Set end equal to integer value, so we can easily compare
+    end = int(years[1])
+    # Set years = to just beginning of an array as we will append stats eventually adding the end date back
+    years = years[:1]
+
+    # Check to see if we need to go up or down to get to the end. Also makes sure end and start are different
+    if end > start:
+        diff = 1
+    elif start > end:
+        diff = -1
+    else:
+        return [start]
+
+    # Loop until we have added all years between start and end
+    while True:
+        start += diff
+        years.append(str(start))
+        if start == end:
+            break
+
+    return years
 
 
 def folder_setup():
@@ -55,7 +91,7 @@ def clean_player_stats(player_stats):
     player box score.
 
     :param player_stats: Dataframe containing player stats for a single game
-    :return: Returns the dataframe without unneeded columns
+    :return: Returns the dataframe without unnecessary columns
     """
     # Can drop number of field goals and free throws made as we keep percentage made and amount attempted
     # Can drop total rebounds as we keep offensive rebounds and defensive rebounds
@@ -67,14 +103,13 @@ def clean_player_stats(player_stats):
 
 def make_column_names(prefix, stats):
     """
-    Given a list of stats will make a dictionary of column names from those stats.
+    Given a list of stats will return a list of column names for those stats with the prefixed attached.
     Prefix = "Player_", Stats = ["", "MIN", "PTS"], NUM_PLAYERS_PER_TEAM = 2
-    output = {0:{[PLAYER_1, PLAYER_1_MIN, PLAYER_1_PTS]} 1:{[PLAYER_2, PLAYER_2_MIN, PLAYER_2_PTS]}}
+    output = [[PLAYER_1, PLAYER_1_MIN, PLAYER_1_PTS], [PLAYER_2, PLAYER_2_MIN, PLAYER_2_PTS]]
 
     :param prefix: String with prefix for all column names
-    :param stats: List of strings with stats to use as column names after attaching prefix
-    :return: Dictionary with keys being numbers from 0 to NUM_PLAYERS_PER_TEAM and values being list of
-             column names made up by adding prefix to front of all strings in stats
+    :param stats: List of strings with stats to use as column names after attaching a prefix
+    :return: 2d array with each index being a list of strings containing column names created for one player
     """
     d = []
     for i in range(0, NUM_PLAYER_PER_TEAM):
@@ -88,13 +123,13 @@ def make_column_names(prefix, stats):
 
 def set_up_columns(schedule, home_columns):
     """
-    Given an NBA schedule and the columns of stats we want for the home team will add stats. This is done so all
-    dataframes for all years are made the same. Otherwise, some years would have game info, away stats, home stats
-    instead of the intended game stats, home stats, away stats
+    Given a schedule and the columns of stats we want for, the home team will make columns for said stats.
+    This is done so all dataframes for all years are made the same. Otherwise, if we process an away game first,
+    some years would have game info, away stats, home stats instead of the intended game stats, home stats, away stats
 
-    :param schedule:
-    :param home_columns:
-    :return:
+    :param schedule: Dataframe with NBA schedule
+    :param home_columns: 2d array with each array containing column names we want added
+    :return: Returns schedule with columns added
     """
     # Set up home columns first so they appear first
     for player_column in home_columns:
@@ -102,117 +137,6 @@ def set_up_columns(schedule, home_columns):
             schedule[stat_colum] = None
 
     return schedule
-
-
-def prepare_data(schedule, year):
-    """
-    Given a schedule for a given nba season and the year of that schedule will go through the season team by team,
-    collect player stats, average them based on GAMES_BACK, and then add NUM_PLAYERS_PER_TEAM of stats for home and
-    away teams. Players are added in order of minutes played, so if NUM_PLAYERS_PER_TEAM = 4 then 4 players from each
-    team who played in game are added based on the highest minutes played in last GAMES_BACK number of games. We do
-    not include the game played in averages as that would be future data when evaluating that particular game.
-
-    :param schedule: A data frame with the following columns GAME_ID, GAME_DATE, MATCHUP, HOME_TEAM_ID, OPP_TEAM_ID,
-                     HOME_TEAM, WINNER, HOME_TEAM_WON
-    :param year: The year the nba schedule is from
-    :return: Does not return anything but saves dataframe of data to "data/games/" + year + "/Final Dataset + MODIFIERS"
-    """
-    # Set up variables
-    team_dataframes = {}  # Used to keep track of player_ids of players on team then used to store players dataframes
-    team_schedule = {}  # Used to store schedule dataframe for individual teams
-
-    # Set up column names so that we can more easily add averaged data later on
-    stats = ["PLAYER_ID", "MIN", "FGA", "FG_PCT", "FG3A", "FG3_PCT", "FTA", "FT_PCT", "OREB", "DREB", "AST", "STL",
-             "BLK", "TO", "PF", "PTS", "PLUS_MINUS"]
-    column_prefix = "PLAYER_"
-    home_column_names = make_column_names("HOME_" + column_prefix, stats)
-    away_column_names = make_column_names("AWAY_" + column_prefix, stats)
-    schedule = set_up_columns(schedule, [["HOME_WIN_STREAK"]] + home_column_names)
-
-    # To make sure we get stats for a players whole season, we need to append to Players file in folder of player's id.
-    # Because of this, we need to make sure we delete any old data that might be in this years /data/players/year folder
-    # If we don't then we will have duplicate data
-    try:
-        shutil.rmtree(os.getcwd() + "/data/players/" + year)
-    except:
-        pass
-
-    # Get each team of that season
-    teams = schedule.HOME_TEAM.unique()
-
-    for team in teams:
-        # For each team get their schedule
-        team_schedule[team] = schedule[schedule['MATCHUP'].str.contains(team)][["GAME_ID", "GAME_DATE", "HOME_TEAM", "WINNER"]]
-        # Average player_stats and save all player ids for players who played on team
-        team_dataframes[team] = save_player_stats(team_schedule[team][["GAME_ID", "GAME_DATE"]], team, year)
-
-    # Now that we have player stats, we can go through the season team by team again.
-    # The reason this cannot be done in the same loop above is that we need to wait until all teams have run so a
-    # player's stats are for the whole season
-    for team in teams:
-        # Get the averaged dataframes for all players who played on team in season
-        team_dataframes[team] = get_averaged_player_stats(team_dataframes[team], year, team)
-        team_sch = team_schedule[team][GAMES_BACK + GAMES_BACK_BUFFER:]
-        # Right now we just set to 0 but for some teams since not start of season will be on win streak
-        # @TODO Check to see if this slices right seems to be off by an extra game. Stats seem fine but should check to
-        games_not_processed = team_schedule[team][:GAMES_BACK + GAMES_BACK_BUFFER]
-        # Loop through games not processed for a model so that we have accurate win streak for start of games we process
-        current_win_loss_streak = 0
-        for winner in games_not_processed["WINNER"][::-1]:
-            if winner != team:
-                if current_win_loss_streak > 0:
-                    break
-                current_win_loss_streak -= 1
-            else:
-                if current_win_loss_streak < 0:
-                    break
-                current_win_loss_streak += 1
-
-
-        # Loop through team schedule
-        for game in team_sch["GAME_ID"]:
-            # Get players who played in game
-            players_in_game = team_dataframes[team][team_dataframes[team]["GAME_ID"] == game]
-            # Get players who played the most minutes
-            players_in_game = players_in_game.head(NUM_PLAYER_PER_TEAM)
-            if team_sch.loc[team_sch["GAME_ID"] == game]["HOME_TEAM"].values[0] == team:
-                columns = home_column_names
-                # Add win streak stat to schedule
-                schedule.loc[schedule["GAME_ID"] == game, "HOME_WIN_STREAK"] = current_win_loss_streak
-            else:
-                columns = away_column_names
-                # Add win streak stat to schedule
-                schedule.loc[schedule["GAME_ID"] == game, "AWAY_WIN_STREAK"] = current_win_loss_streak
-
-            # Update win/loss streak
-            if schedule.loc[schedule["GAME_ID"] == game]["WINNER"].values[0] == team:
-                if current_win_loss_streak > 0:
-                    current_win_loss_streak += 1
-                else:
-                    current_win_loss_streak = 1
-            else:
-                if current_win_loss_streak < 0:
-                    current_win_loss_streak -= 1
-                else:
-                    current_win_loss_streak = -1
-
-            # Add players stats to schedule
-            for i in range(0, NUM_PLAYER_PER_TEAM):
-                column_names = columns[i]
-                schedule.loc[schedule["GAME_ID"] == game, column_names] = (players_in_game.iloc[i][stats].to_numpy())
-
-    # Get rid of any rows with no data
-    schedule = schedule.dropna()
-    # Convert the GAME_DATE column to 3 columns of integers
-    year_month_day = schedule["GAME_DATE"].str.split('-', expand=True)
-    schedule["GAME_DATE"] = year_month_day[0]
-    schedule = pd.concat([schedule.iloc[:, :2], year_month_day[1], schedule.iloc[:, 2:]], axis=1)
-    schedule = pd.concat([schedule.iloc[:, :3], year_month_day[2], schedule.iloc[:, 3:]], axis=1)
-    schedule = schedule.rename(columns={"GAME_DATE": "YEAR", 1: "MONTH", 2: "DAY"})
-    # Save data frame so we can reuse
-    schedule.to_csv("data/games/" + year + "/Final Dataset " +
-                    "(PLAYERS_PER_TEAM = " + str(NUM_PLAYER_PER_TEAM) + " GAMES_BACK = " + str(GAMES_BACK) +
-                    " GAMES_BUFFER = " + str(GAMES_BACK_BUFFER) + ").csv", index=False)
 
 
 def save_player_stats(team_schedule, team_abbrev, year):
@@ -332,6 +256,125 @@ def get_averaged_player_stats(player_ids, year, team):
     return team_df
 
 
+def prepare_data(schedule, year):
+    """
+    Given a schedule for a given nba season and the year of that schedule will go through the season team by team,
+    collect player stats, average them based on GAMES_BACK, and then add NUM_PLAYERS_PER_TEAM of stats for home and
+    away teams. Players are added in order of minutes played, so if NUM_PLAYERS_PER_TEAM = 4 then 4 players from each
+    team who played in game are added based on the highest minutes played in last GAMES_BACK number of games. We do
+    not include the game played in averages as that would be future data when evaluating that particular game.
+
+    :param schedule: A data frame with the following columns GAME_ID, GAME_DATE, MATCHUP, HOME_TEAM_ID, OPP_TEAM_ID,
+                     HOME_TEAM, WINNER, HOME_TEAM_WON
+    :param year: The year the nba schedule is from
+    :return: Does not return anything but saves dataframe of data to "data/games/" + year + "/Final Dataset + MODIFIERS"
+    """
+    print("Preparing data from NBA season " + year)
+    start_time = time.time()
+    # Set up variables
+    team_dataframes = {}  # Used to keep track of player_ids of players on team then used to store players dataframes
+    team_schedule = {}  # Used to store schedule dataframe for individual teams
+
+    # Set up column names so that we can more easily add averaged data later on
+    stats = ["PLAYER_ID", "MIN", "FGA", "FG_PCT", "FG3A", "FG3_PCT", "FTA", "FT_PCT", "OREB", "DREB", "AST", "STL",
+             "BLK", "TO", "PF", "PTS", "PLUS_MINUS"]
+    column_prefix = "PLAYER_"
+    home_column_names = make_column_names("HOME_" + column_prefix, stats)
+    away_column_names = make_column_names("AWAY_" + column_prefix, stats)
+    schedule = set_up_columns(schedule, [["HOME_WIN_STREAK"]] + home_column_names)
+
+    # To make sure we get stats for a players whole season, we need to append to Players file in folder of player's id.
+    # Because of this, we need to make sure we delete any old data that might be in this years /data/players/year folder
+    # If we don't then we will have duplicate data
+    try:
+        shutil.rmtree(os.getcwd() + "/data/players/" + year)
+    except:
+        pass
+
+    # Get each team of that season
+    teams = schedule.HOME_TEAM.unique()
+
+    for team in teams:
+        # For each team get their schedule
+        team_schedule[team] = schedule[schedule['MATCHUP'].str.contains(team)][
+            ["GAME_ID", "GAME_DATE", "MATCHUP", "HOME_TEAM", "WINNER"]]
+        # Average player_stats and save all player ids for players who played on team
+        team_dataframes[team] = save_player_stats(team_schedule[team][["GAME_ID", "GAME_DATE"]], team, year)
+
+    # Now that we have player stats, we can go through the season team by team again.
+    # The reason this cannot be done in the same loop above is that we need to wait until all teams have run so a
+    # player's stats are for the whole season
+    for team in teams:
+        # Get the averaged dataframes for all players who played on team in season
+        team_dataframes[team] = get_averaged_player_stats(team_dataframes[team], year, team)
+        team_schedule[team] = team_schedule[team][GAMES_BACK + GAMES_BACK_BUFFER:]
+        team_sch = team_schedule[team]
+        # Right now we just set to 0 but for some teams since not start of season will be on win streak
+        # @TODO Check to see if this slices right seems to be off by an extra game. Stats seem fine but should check to
+        games_not_processed = team_schedule[team][:GAMES_BACK + GAMES_BACK_BUFFER]
+        # Loop through games not processed for a model so that we have accurate win streak for start of games we process
+        current_win_loss_streak = 0
+        for winner in games_not_processed["WINNER"][::-1]:
+            if winner != team:
+                if current_win_loss_streak > 0:
+                    break
+                current_win_loss_streak -= 1
+            else:
+                if current_win_loss_streak < 0:
+                    break
+                current_win_loss_streak += 1
+
+        # Loop through team schedule
+        for game in team_sch["GAME_ID"]:
+            # Get players who played in game
+            players_in_game = team_dataframes[team][team_dataframes[team]["GAME_ID"] == game]
+            # Get players who played the most minutes
+            players_in_game = players_in_game.head(NUM_PLAYER_PER_TEAM)
+            if team_sch.loc[team_sch["GAME_ID"] == game]["HOME_TEAM"].values[0] == team:
+                columns = home_column_names
+                # Add win streak stat to schedule
+                schedule.loc[schedule["GAME_ID"] == game, "HOME_WIN_STREAK"] = current_win_loss_streak
+            else:
+                columns = away_column_names
+                # Add win streak stat to schedule
+                schedule.loc[schedule["GAME_ID"] == game, "AWAY_WIN_STREAK"] = current_win_loss_streak
+
+            # Update win/loss streak
+            if schedule.loc[schedule["GAME_ID"] == game]["WINNER"].values[0] == team:
+                if current_win_loss_streak > 0:
+                    current_win_loss_streak += 1
+                else:
+                    current_win_loss_streak = 1
+            else:
+                if current_win_loss_streak < 0:
+                    current_win_loss_streak -= 1
+                else:
+                    current_win_loss_streak = -1
+
+            # Add players stats to schedule
+            for i in range(0, NUM_PLAYER_PER_TEAM):
+                column_names = columns[i]
+                schedule.loc[schedule["GAME_ID"] == game, column_names] = (players_in_game.iloc[i][stats].to_numpy())
+
+    # Get rid of any rows with no data
+    schedule = schedule.dropna()
+    # Convert the GAME_DATE column to 3 columns of integers
+    year_month_day = schedule["GAME_DATE"].str.split('-', expand=True)
+    schedule["GAME_DATE"] = year_month_day[0]
+    schedule = pd.concat([schedule.iloc[:, :2], year_month_day[1], schedule.iloc[:, 2:]], axis=1)
+    schedule = pd.concat([schedule.iloc[:, :3], year_month_day[2], schedule.iloc[:, 3:]], axis=1)
+    schedule = schedule.rename(columns={"GAME_DATE": "YEAR", 1: "MONTH", 2: "DAY"})
+
+    print("Finished took " + str((time.time() - start_time) / 60) + " minutes to prepare data")
+
+    # Save data frame so we can reuse
+    schedule.to_csv("data/games/" + year + "/Final Dataset " +
+                    "(PLAYERS_PER_TEAM = " + str(NUM_PLAYER_PER_TEAM) + " GAMES_BACK = " + str(GAMES_BACK) +
+                    " GAMES_BUFFER = " + str(GAMES_BACK_BUFFER) + ").csv", index=False)
+
+    return teams, schedule
+
+
 def get_game_data(game_id):
     """
     Given a game id will return a dataframe containing data on what teams played, what players played and how many
@@ -425,7 +468,7 @@ def thread_save_game_data(year, row):
     home_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(home_team)]
     away_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(away_team)]
 
-    # Make sure we have folder to save to
+    # Make sure we have folders to save to
     directory = os.getcwd() + "/data/games/" + year
     home_directory = directory + "/" + home_team + "/"
     away_directory = directory + "/" + away_team + "/"
@@ -436,13 +479,15 @@ def thread_save_game_data(year, row):
     away_data.to_csv(away_directory + game_id + "_stats.csv", index=False)
 
 
-def save_league_data(year):
+def save_download_data(year):
     """
     Saves all data needed for model for given year. Uses save_league_schedule() to get league schedule for given year
     and then feeds the given dataframe to thread_save_game_data() to process and save.
     :param year: String with year we want data for
     :return: Does not return anything
     """
+    print("Starting download for NBA season " + year)
+    start_time = time.time()
     # Save and get game id for all games played for given year
     schedule = save_league_schedule(year)
     # Make sure we have folder to save games to
@@ -457,8 +502,9 @@ def save_league_data(year):
     with ThreadPoolExecutor(max_workers=NUM_CORES) as executor:
         executor.map(lambda row: thread_save_game_data(year, row), schedule.itertuples(index=False))
 
+    print("Finished took " + str((time.time() - start_time) / 60) + " minutes to download")
     # Save players stats
-    prepare_data(schedule, year)
+    return schedule
 
 
 def get_all_data(years, data_is_downloaded):
@@ -475,55 +521,28 @@ def get_all_data(years, data_is_downloaded):
     """
     # Save league schedule
     for year in years:
-        start_time = time.time()
-        print("Starting for NBA season " + year)
         if data_is_downloaded:
-            prepare_data(pd.read_csv("data/games/" + year + "/schedule.csv", dtype={'GAME_ID': str}), year)
+            schedule = pd.read_csv("data/games/" + year + "/schedule.csv", dtype={'GAME_ID': str})
         else:
-            save_league_data(year)
-        print("Finished took " + str((time.time() - start_time) / 60) + " minutes")
+            schedule = save_download_data(year)
 
-    # Combine all years into one dataframe
-
-
-def gather_data_for_model(years):
-    """
-    The function assumes that the data has already been downloaded and prepared for the years provided.
-    It also assumes that settings (GAMES_BACK, GAMES_BACK_BUFFER, NUM_PLAYER_PER_TEAM) used for all years is not only
-    the same but also the current settings of the program.
-
-    :param years: Array of strings with each index being a year we would like nba data for
-    :return: Returns two things
-             1. Numpy array of all the parameters
-             2. Numpy array with results
-    """
-    data = []
-    for year in years:
-        # Get data frame for given year
-        df = pd.read_csv("data/games/" + year + "/Final Dataset " +
-                         "(PLAYERS_PER_TEAM = " + str(NUM_PLAYER_PER_TEAM) + " GAMES_BACK = " + str(GAMES_BACK) +
-                         " GAMES_BUFFER = " + str(GAMES_BACK_BUFFER) + ").csv", dtype={'GAME_ID': str})
-        data.append(df)
-
-    data = pd.concat(data, ignore_index=True)
-
-    # Convert parameters to numpy array
-    invalid_cols = ["MATCHUP", "WINNER", "HOME_TEAM", "HOME_TEAM_WON"]
-    x = data.drop(columns=invalid_cols)
-    column_names = x.columns.to_list()
-    x = x.to_numpy()
-
-    # Convert results to numpy array
-    y = data["HOME_TEAM_WON"].to_numpy()
-
-    # Make sure folder is set up then save data
-    folder_check("data/models")
-    data.to_csv("data/models/data.csv", index=False)
-
-    return x, y, column_names
+        # Prepare data for nba season
+        teams = prepare_data(schedule, year)
+        # Get team v team stats
+        get_team_stats(teams, schedule)
+        #
 
 
 def main():
+    # TODO add ability top apply rolling average over multiple seasons. Won't help much for rolling average but will
+    # help for team v team stats as some teams only play twice a year
+    # TODO add column to track how many players from team are on team from game to game. So if 5 players and all 5 play
+    # in next game its 5 if only 3 then 3. If in game after
+    get_team_stats(['GSW', 'DEN', 'LAC', 'ORL', 'SAS', 'MEM', 'CHI', 'TOR', 'BKN', 'MIA', 'NYK', 'UTA', 'CHA',
+                    'IND', 'MIL', 'LAL', 'ATL', 'SAC', 'POR', 'DAL', 'CLE', 'BOS', 'WAS', 'DET',
+                    'PHX', 'MIN', 'NOP', 'HOU', 'PHI', 'OKC'],
+                   pd.read_csv("data/games/" + "2023" + "/schedule.csv", dtype={'GAME_ID': str}))
+    exit()
     # @TODO Maybe add in start_position along with stats so we know what postion best players play
     # Get information from user, so we know what seasons to download and/or prepare data for
     # Also asks user if they already have data downloaded, so we can skip download and skip to preparing that data
@@ -542,6 +561,74 @@ def main():
     # Make sure we have basic folders needed for program setup
     folder_setup()
     get_all_data(years, downloaded_data)
+
+
+def get_team_stats(teams, schedule):
+    """
+
+
+    In the future may change to pull stats against team v team purely instead of relying on prepare_data()
+
+    :param teams:
+    :param schedule:
+    :return:
+    """
+    print(teams)
+    # Loop through each team
+    for i in range(0, len(teams)):
+        current_team = teams[i]
+        print("\n Start " + current_team)
+
+        # For each team loop through season for all others team adding in team v team stats
+        for versus_team in teams[i + 1:]:
+            # Get games where teams played against each other
+            team_v_team_schedule = schedule.loc[((schedule["MATCHUP"] == current_team + " vs. " + versus_team) |
+                                                 (schedule["MATCHUP"] == versus_team + " vs. " + current_team))]
+            print(team_v_team_schedule)
+            #
+
+
+    schedule.to_csv("data/Foobar.csv", index=False)
+
+
+def get_data_for_model(years):
+    """
+    The function assumes that the data has already been downloaded and prepared for the years provided.
+    It also assumes that settings (GAMES_BACK, GAMES_BACK_BUFFER, NUM_PLAYER_PER_TEAM) used for all years is not only
+    the same but also the current settings of the program.
+
+    :param years: Array of strings with each index being a year we would like nba data for
+    :return: Returns two things
+             1. Numpy array of all the parameters
+             2. Numpy array with results
+    """
+    print("Collecting data for years: " + str(years) + "\nGAMES_BACK = " + str(GAMES_BACK) +
+          "\nNUM_PLAYER_PER_TEAM = " + str(NUM_PLAYER_PER_TEAM) + "\nGAMES_BACK_BUFFER = " + str(GAMES_BACK_BUFFER))
+    data = []
+    for year in years:
+        # Get data frame for given year
+        df = pd.read_csv("data/games/" + year + "/Final Dataset " +
+                         "(PLAYERS_PER_TEAM = " + str(NUM_PLAYER_PER_TEAM) + " GAMES_BACK = " + str(GAMES_BACK) +
+                         " GAMES_BUFFER = " + str(GAMES_BACK_BUFFER) + ").csv", dtype={'GAME_ID': str})
+        data.append(df)
+
+    data = pd.concat(data, ignore_index=True)
+
+    # Convert parameters to a numpy array
+    extra_columns = ["GAME_ID", "YEAR"]
+    invalid_cols = ["MATCHUP", "WINNER", "HOME_TEAM", "HOME_TEAM_WON"]
+    x = data.drop(columns=invalid_cols + extra_columns)
+    x.to_csv("data/models/Features.csv", index=False)
+    column_names = x.columns.to_list()
+    x = x.to_numpy()
+
+    # Convert results to a numpy array
+    y = data["HOME_TEAM_WON"].to_numpy()
+
+    # Make sure a folder is set up then save data
+    folder_check("data/models")
+
+    return x, y, column_names
 
 
 if __name__ == "__main__":

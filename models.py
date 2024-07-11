@@ -5,7 +5,7 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import accuracy_score, mean_squared_error, classification_report
 from sklearn.preprocessing import StandardScaler
-from data_collector import gather_data_for_model
+from data_collector import get_data_for_model
 from sklearn.pipeline import Pipeline
 
 
@@ -154,19 +154,19 @@ def ridge_classification(x, y, features):
         {
             'solver': ["sag", "saga"],
             'alpha': [0.1, 0.5, 1.5],
-            'max_iter': range(800, 1600, 100),
+            'max_iter': range(800, 1500, 100),
             'positive': [False],
         },
         {
             'solver': ["auto", "svd", "cholesky", "lsqr", "sparse_cg"],
             'alpha': [0.1, 0.5, 1.5],
-            'max_iter': range(100, 1000, 100),
+            'max_iter': range(50, 600, 50),
             'positive': [False],
         },
         {
             'solver': ["lbfgs"],
             'alpha': [0.1, 0.5, 1.5],
-            'max_iter': range(50, 500, 50),
+            'max_iter': range(50, 600, 50),
             'positive': [True],
 
         }
@@ -325,9 +325,8 @@ def main():
         years_to_examine = input("What years would you like to examine? If multiple just type them with a space like "
                                  "\"2020 2021 2022\" ").split()
 
-    print("Collecting data for years: " + str(years_to_examine))
     # Get data, target values and features of data
-    x, y, features = gather_data_for_model(years_to_examine)
+    x, y, features = get_data_for_model(years_to_examine)
 
     # Find out the baseline by calculating odds home team win
     print("If you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))
