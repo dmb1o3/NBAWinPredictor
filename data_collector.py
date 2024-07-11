@@ -538,17 +538,17 @@ def main():
     # help for team v team stats as some teams only play twice a year
     # TODO add column to track how many players from team are on team from game to game. So if 5 players and all 5 play
     # in next game its 5 if only 3 then 3. If in game after
-    get_team_stats(['GSW', 'DEN', 'LAC', 'ORL', 'SAS', 'MEM', 'CHI', 'TOR', 'BKN', 'MIA', 'NYK', 'UTA', 'CHA',
-                    'IND', 'MIL', 'LAL', 'ATL', 'SAC', 'POR', 'DAL', 'CLE', 'BOS', 'WAS', 'DET',
-                    'PHX', 'MIN', 'NOP', 'HOU', 'PHI', 'OKC'],
-                   pd.read_csv("data/games/" + "2023" + "/schedule.csv", dtype={'GAME_ID': str}))
-    exit()
+    #get_team_stats(['GSW', 'DEN', 'LAC', 'ORL', 'SAS', 'MEM', 'CHI', 'TOR', 'BKN', 'MIA', 'NYK', 'UTA', 'CHA',
+                    #'IND', 'MIL', 'LAL', 'ATL', 'SAC', 'POR', 'DAL', 'CLE', 'BOS', 'WAS', 'DET',
+                    #'PHX', 'MIN', 'NOP', 'HOU', 'PHI', 'OKC'],
+                   #pd.read_csv("data/games/" + "2023" + "/schedule.csv", dtype={'GAME_ID': str}))
+    #exit()
     # @TODO Maybe add in start_position along with stats so we know what postion best players play
     # Get information from user, so we know what seasons to download and/or prepare data for
     # Also asks user if they already have data downloaded, so we can skip download and skip to preparing that data
-    years = input("What years would you like to download/prepare? If multiple just type them with a space like \"2020 "
-                  "2021 2022\" ")
-    years = years.split()
+    #years = input("What years would you like to download/prepare? If multiple just type them with a space like \"2020 "
+    #              "2021 2022\" ")
+    #years = years.split()
     print("Do you have the data downloaded already? (Type number associated with choice)")
     print("1. Yes")
     print("2. No")
