@@ -18,8 +18,8 @@ PLAYER_LOCK = Lock()  # Used to sync threads for saving data on playerProcessed
 PLAYER_PROCESSED = set()  # Saves data about player_ids we processed so threads don't do redundant work
 
 # Global Settings for data collection
-NUM_PLAYER_PER_TEAM = 3  # Number of players per team that we should save stats for
-GAMES_BACK = 15  # Number of games to go back for rolling average. Must be greater than or equal to 1
+NUM_PLAYER_PER_TEAM = 5  # Number of players per team that we should save stats for
+GAMES_BACK = 5  # Number of games to go back for rolling average. Must be greater than or equal to 1
 GAMES_BACK_TEAM_V_TEAM = 4  # Number of games to go back for rolling average. Must be greater than or equal to 1
 GAMES_BACK_BUFFER = 2  # Buffer to help some teams as in some season they struggle in beginning
 
@@ -546,9 +546,9 @@ def main():
     # @TODO Maybe add in start_position along with stats so we know what postion best players play
     # Get information from user, so we know what seasons to download and/or prepare data for
     # Also asks user if they already have data downloaded, so we can skip download and skip to preparing that data
-    #years = input("What years would you like to download/prepare? If multiple just type them with a space like \"2020 "
-    #              "2021 2022\" ")
-    #years = years.split()
+    years = input("What years would you like to download/prepare? If multiple just type them with a space like \"2020 "
+                  "2021 2022\" ")
+    years = years.split()
     print("Do you have the data downloaded already? (Type number associated with choice)")
     print("1. Yes")
     print("2. No")
@@ -588,7 +588,6 @@ def get_team_stats(teams, schedule):
             #
 
 
-    schedule.to_csv("data/Foobar.csv", index=False)
 
 
 def get_data_for_model(years):
@@ -602,7 +601,7 @@ def get_data_for_model(years):
              1. Numpy array of all the parameters
              2. Numpy array with results
     """
-    print("Collecting data for years: " + str(years) + "\nGAMES_BACK = " + str(GAMES_BACK) +
+    print("\nCollecting data for years: " + str(years) + "\nGAMES_BACK = " + str(GAMES_BACK) +
           "\nNUM_PLAYER_PER_TEAM = " + str(NUM_PLAYER_PER_TEAM) + "\nGAMES_BACK_BUFFER = " + str(GAMES_BACK_BUFFER))
     data = []
     for year in years:

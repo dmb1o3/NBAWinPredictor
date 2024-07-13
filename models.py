@@ -39,7 +39,7 @@ def get_best_parameters(model, param_grid, x_train, y_train):
     return best_params
 
 
-def run_model(x_train, x_test, y_train, y_test, model):
+def run_model(x_train, x_test, y_train, y_test, model, notClassifier):
     """
     Will run model on data given
 
@@ -48,7 +48,8 @@ def run_model(x_train, x_test, y_train, y_test, model):
     :param y_train: Array containing target values for training data
     :param y_test:  Array containing target values for testing data
     :param model:   Scikit-learn model to run on data
-    :return:        Returns scikit-learn model after being trained and tested
+    :param notClassifier: Boolean to know if model is classification or regression. Determines if we calc and print MSE
+    :return: Returns a scikit-learn model after being trained and tested
     """
     # Train model
     model.fit(x_train, y_train)
@@ -60,7 +61,8 @@ def run_model(x_train, x_test, y_train, y_test, model):
     mse = mean_squared_error(y_test, y_pred)
     class_report = classification_report(y_test, y_pred, target_names=["Home Team Lost", "Home Team Won"])
     print(f"Accuracy: {accuracy:.2f}")
-    print(f"Mean squared error: {mse:.2f}")
+    if notClassifier:
+        print(f"Mean squared error: {mse:.2f}")
     print(class_report)
 
     """
@@ -72,13 +74,7 @@ def run_model(x_train, x_test, y_train, y_test, model):
     return model
 
 
-def logistic_regression(x, y, features):
-    # Scale data
-    scaler = StandardScaler()
-    x = scaler.fit_transform(x)
-
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
-
+def logistic_regression(x_train, x_test, y_train, y_test, features):
     # Max_iter settings for saga solvers. Other models can go lower but saga solvers will through convergence errors
     sag_max_iter_start = 500
     sag_max_iter_end = 1500
@@ -127,14 +123,14 @@ def logistic_regression(x, y, features):
     ]
 
     print("\nLogisticRegression")
-    best_params = get_best_parameters(LogisticRegression(), param_grid, x_train, y_train)
+    best_params = get_best_parameters(LogisticRegression(), param_grid, x_train, y_train,)
     best_solver = best_params['solver']
     best_penalty = best_params['penalty']
     best_l1_ratio = best_params['l1_ratio']
     best_max_iter = best_params['max_iter']
     model = LogisticRegression(penalty=best_penalty, solver=best_solver, l1_ratio=best_l1_ratio, max_iter=best_max_iter)
 
-    model = run_model(x_train, x_test, y_train, y_test, model)
+    model = run_model(x_train, x_test, y_train, y_test, model, False)
 
     # Set up data frame so easier to understand what features are being used
     d = pd.DataFrame({"FEATURES": features, "COEFFICIENT": model.coef_[0]})
@@ -143,13 +139,7 @@ def logistic_regression(x, y, features):
     d.to_csv("data/models/Linear_Regression_Features_COEF.csv", index=False)
 
 
-def ridge_classification(x, y, features):
-    # Scale data
-    scaler = StandardScaler()
-    x = scaler.fit_transform(x)
-
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
-
+def ridge_classification(x_train, x_test, y_train, y_test, features):
     param_grid = [
         {
             'solver': ["sag", "saga"],
@@ -180,7 +170,7 @@ def ridge_classification(x, y, features):
     best_positive = best_params['positive']
     model = RidgeClassifier(solver=best_solver, alpha=best_alpha, max_iter=best_max_iter, positive=best_positive)
 
-    model = run_model(x_train, x_test, y_train, y_test, model)
+    model = run_model(x_train, x_test, y_train, y_test, model, False)
 
     # Set up data frame so easier to understand what features are being used
     d = pd.DataFrame({"FEATURES": features, "COEFFICIENT": model.coef_[0]})
@@ -189,11 +179,7 @@ def ridge_classification(x, y, features):
     d.to_csv("data/models/Ridge_Classifier_Features_COEF.csv", index=False)
 
 
-def random_forest(x, y):
-    # Scale data
-    scaler = StandardScaler()
-    x = scaler.fit_transform(x)
-
+def random_forest(x_train, x_test, y_train, y_test):
     # Set up param_grid for hyperparameter tuning
     param_grid = {
         'n_estimators': range(10, 50, 10),
@@ -205,8 +191,6 @@ def random_forest(x, y):
         'bootstrap': [True, False]
     }
     print("\nRandomForestClassifier")
-    # Set up data for testing and training
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
 
     # Find best parameters for model
     best_params = get_best_parameters(RandomForestClassifier(), param_grid, x_train, y_train)
@@ -228,26 +212,21 @@ def random_forest(x, y):
     selected_features = model.decision_path(x_train)
     print(selected_features)
     """
-    run_model(x_train, x_test, y_train, y_test, model)
+    run_model(x_train, x_test, y_train, y_test, model, False)
 
 
-def gradient_boosting(x, y):
-    # Scale data
-    scaler = StandardScaler()
-    x = scaler.fit_transform(x)
-
+def gradient_boosting(x_train, x_test, y_train, y_test):
     # Set up param_grid for hyperparameter tuning
     param_grid = {
         'loss': ["exponential", "log_loss"],
         'learning_rate': [0.3, 0.5, 0.7],
-        'n_estimators': list(range(20, 300, 20)),
+        'n_estimators': list(range(20, 100, 20)),
         'criterion': ["friedman_mse", "squared_error"],
         'min_samples_split': [2, 5, 10],
         'min_samples_leaf': [1, 4],
         'max_depth': [2, 3, 7]  # [None]
     }
     print("\nGradientBoostingClassifier")
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
     best_params = get_best_parameters(GradientBoostingClassifier(), param_grid, x_train, y_train)
     best_loss = best_params['loss']
     best_learning_rate = best_params['learning_rate']
@@ -261,16 +240,10 @@ def gradient_boosting(x, y):
                                        criterion=best_criterion, min_samples_split=best_min_samples_split,
                                        min_samples_leaf=best_min_samples_leaf, max_depth=best_max_depth)
 
-    run_model(x_train, x_test, y_train, y_test, model)
+    run_model(x_train, x_test, y_train, y_test, model, False)
 
 
-def knn(x, y):
-    # Scale data
-    scaler = StandardScaler()
-    x = scaler.fit_transform(x)
-
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
-
+def knn(x_train, x_test, y_train, y_test):
     param_grid = {
         'n_neighbors': range(2, 44, 6),
         'weights': ['uniform', 'distance'],
@@ -288,7 +261,7 @@ def knn(x, y):
     best_algorithm = best_params['algorithm']
     best_model = KNeighborsClassifier(n_neighbors=best_k, weights=best_weights, p=best_p, algorithm=best_algorithm)
     # Run model
-    run_model(x_train, x_test, y_train, y_test, best_model)
+    run_model(x_train, x_test, y_train, y_test, best_model, False)
 
 
 def bet_on_home_team(results):
@@ -311,6 +284,7 @@ def bet_on_home_team(results):
 
 
 def main():
+    # @TODO test out model using training data in order for certain years maybe 2020-2022 and testing data as 2023
     # Default years to use as data
     years_to_examine = ["2020", "2021", "2022", "2023"]
 
@@ -319,24 +293,49 @@ def main():
     print("Current years: " + str(years_to_examine))
     print("1. Use current years")
     print("2. Input new years")
-    set_new_years_examine = input("")
+    user_answer = input("")
     # If they would like to set their own change to desired years
-    if set_new_years_examine == "2":
+    if user_answer == "2":
         years_to_examine = input("What years would you like to examine? If multiple just type them with a space like "
                                  "\"2020 2021 2022\" ").split()
 
+    # Ask user if we should scale data
+    print("\n   mDo you want to scale the data?")
+    print("1. Scale data")
+    print("2. Do not Scale Data")
+    user_answer = input("")
+
     # Get data, target values and features of data
     x, y, features = get_data_for_model(years_to_examine)
+
+    if user_answer == "1":
+        # Scale data
+        print("\nScaling data\n")
+        scaler = StandardScaler()
+        x = scaler.fit_transform(x)
+
+    # Ask user how we should split data
+    print("For the seasons entered do you want randomly split data or go sequentially?")
+    print("1. Randomly Split Data")
+    print("2. Sequentially")
+    user_answer = input("")
+
+    if user_answer == "1":
+        print("\nRandomly Splitting Data\n")
+        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
+    else:
+        print("\nSplitting Data Sequential\n")
+        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, shuffle=False, random_state=100)
 
     # Find out the baseline by calculating odds home team win
     print("If you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))
 
     # Run models
-    ridge_classification(x, y, features)
-    logistic_regression(x, y, features)
-    random_forest(x, y)
-    knn(x, y)
-    gradient_boosting(x, y)
+    logistic_regression(x_train, x_test, y_train, y_test, features)
+    ridge_classification(x_train, x_test, y_train, y_test, features)
+    random_forest(x_train, x_test, y_train, y_test)
+    knn(x_train, x_test, y_train, y_test)
+    gradient_boosting(x_train, x_test, y_train, y_test)
 
 
 if __name__ == "__main__":

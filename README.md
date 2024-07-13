@@ -57,11 +57,19 @@ Home Team Lost       0.62      0.46      0.52       776
 #### 3. Random Forest
 
 ```
-Highest Accuracy: 0.65
-Mean squared error: 0.35
-Cross-validation score: 0.63
-Parameters: {'bootstrap': True, 'criterion': 'log_loss', 'max_depth': 20, 'max_features': 'sqrt', 
-             'min_samples_leaf': 4, 'min_samples_split': 2, 'n_estimators': 40}
+Best parameters: {'bootstrap': False, 'criterion': 'gini', 'max_depth': 60, 
+'max_features': 'sqrt', 'min_samples_leaf': 1, 'min_samples_split': 10, 'n_estimators': 40}
+Best cross-validation score: 0.63
+Accuracy: 0.66
+                 precision    recall  f1-score   support
+
+Home Team Lost      0.66      0.51      0.58       399
+Home Team Won       0.65      0.78      0.71       468
+
+      accuracy                           0.66       867
+     macro avg       0.66      0.64      0.64       867
+  weighted avg       0.66      0.66      0.65       867
+  
 Done using data from 2020 - 2023, 5 players per team, 5 games back, 2 game buffer 
 ```
 
