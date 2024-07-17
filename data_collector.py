@@ -13,11 +13,11 @@ from retrying import retry
 
 # Global Variables
 NUM_THREADS = 4  # Used to know how many threads to use when downloading individual data for games
+MAX_DOWNLOAD_ATTEMPTS = 4  # Set to -1 for infinite. Controls number of times to try to download from NBA api
 GAME_LOCK = Lock()  # Used to sync threads for saving data to gameProcessed
 GAME_PROCESSED = set()  # Saves data about game_ids we processed so threads don't do redundant work
 PLAYER_LOCK = Lock()  # Used to sync threads for saving data on playerProcessed
 PLAYER_PROCESSED = set()  # Saves data about player_ids we processed so threads don't do redundant work
-MAX_DOWNLOAD_ATTEMPTS = 3  # Set to -1 for infinite. Controls number of times to try to download from NBA api
 
 # Global Settings for data collection
 NUM_PLAYER_PER_TEAM = 5  # Number of players per team that we should save stats for
@@ -33,19 +33,19 @@ def dash_to_individual(years):
     Input = "2016-2013", Output = ["2016", "2015", "2014", "2013']
     Input = "2016-2016", Output = ["2016"]
 
-    :param years: String formatted as start_date-end_date i.e. 2020-2023, 2023-2020
+    :param years: String formatted as start_date-end_date i.e., 2020-2023, 2023-2020
     :return: Returns a list of strings with years between and including
     """
     # Split up string by dash
     years = years.split("-")
-    # Set start to integer value so we can easily get next value
+    # Set start to integer value, so we can easily get the next value
     start = int(years[0])
     # Set end equal to integer value, so we can easily compare
     end = int(years[1])
-    # Set years = to just beginning of an array as we will append stats eventually adding the end date back
+    # Set years equal to just beginning of an array as we will append stats eventually adding the end date back
     years = years[:1]
 
-    # Check to see if we need to go up or down to get to the end. Also makes sure end and start are different
+    # Check to see if we need to go up or down to get to the end. Also make sure that end and start are different
     if end > start:
         diff = 1
     elif start > end:
@@ -130,9 +130,9 @@ def set_up_columns(schedule, home_columns):
     This is done so all dataframes for all years are made the same. Otherwise, if we process an away game first,
     some years would have game info, away stats, home stats instead of the intended game stats, home stats, away stats
 
-    :param schedule: Dataframe with NBA schedule
+    :param schedule: Dataframe with an NBA schedule
     :param home_columns: 2d array with each array containing column names we want added
-    :return: Returns schedule with columns added
+    :return: Returns schedule with home_columns added
     """
     # Set up home columns first so they appear first
     for player_column in home_columns:
@@ -147,23 +147,23 @@ def save_player_stats(team_schedule, team_abbrev, year):
     When called will look at all games a team played from the given schedule. It will then make dataframes for each
     player combining all of their stats for that schedule. It will average their stats over a number of games set by
     global GAMES_BACK. It will then combine all player data frames into one for the team which it will then sort
-    primarily by GAME_ID and then by MIN so when we finish stats are clumped into each game instead of each player. Also
-    means for each game player stats are sorted in descending order of minutes played. We also save the teams averages
-    to data/year/team_abbrev/team_abbrev_player_averages.csv
+    primarily by GAME_ID and then by MIN, so when we finish, stats are clumped into each game instead of each player.
+    Also means for each game player stats are sorted in descending order of minutes played. We also save the team
+    averages to data/year/team_abbrev/team_abbrev_player_averages.csv
 
     :param team_schedule: Pandas series containing GAME_IDs we want to look at
     :param team_abbrev: String with abbreviation of team
     :param year: String of year schedule is for. Used to know where to save data
-    :return: Player ids of players who played on team at some point
+    :return: Player ids of players who played on the team at some point
     """
     directory = "data/games/" + year + "/" + team_abbrev + "/"
     player_dataframes = {}
     player_ids = []  # Gets rid of warning later on when we reference player_ids. Not necessary
     # For each game get stats
     for game in team_schedule["GAME_ID"]:
-        # Collect player averages for game. Need to read GAME_ID as string as it has leading zeros
+        # Collect player averages for game. Need to read GAME_ID as a string as it has leading zeros
         game_stats = pd.read_csv(directory + str(game) + "_stats.csv", dtype={'GAME_ID': str})
-        # Get players in game
+        # Get players in the game
         player_ids = game_stats.PLAYER_ID.unique()
         for player_id in player_ids:
             # Get stats of player we are looking at
@@ -186,7 +186,7 @@ def save_player_stats(team_schedule, team_abbrev, year):
         folder_check(directory)
         try:
             player_data = pd.read_csv(directory + "/Player_Stats.csv", dtype={'GAME_ID': str})
-            # Combine players games on current team with previous team
+            # Combine player's games on the current team with the previous team
             combo_player_data = pd.concat([player_data, player_dataframes[player_id]])
             # Sort by game date to make sure things are in order
             combo_player_data = combo_player_data.sort_values(by=['GAME_DATE'], ascending=[True])
@@ -201,7 +201,7 @@ def save_player_stats(team_schedule, team_abbrev, year):
 def get_averaged_player_stats(player_ids, year, team):
     """
     Will get stats for given player_ids from given year that have played on a given team. These stats are from a players
-    entire season not just with team. These stats will then have a rolling averaged applied to them decided by global
+    entire season not just with team. These stats will then have a rolling average applied to them decided by global
     variable GAMES_BACK. These stats will then be saved to /data/players/ + year + / + player_id + /Player_Averages.csv
     so that future teams can use them if needed. After doing this with all players stats will then combine them into one
     dataframe, sort them in order of GAME_DATE, GAME_ID and then MIN and then return and save the dataframe to
@@ -210,7 +210,7 @@ def get_averaged_player_stats(player_ids, year, team):
     :param player_ids: List of player_ids that played on given team at some point in given year
     :param year: Year of nba season we are looking at
     :param team: String with abbreviation of an NBA team we are looking at
-    :return: Returns data frame with entire teams averaged players stats. In order of the date the game was played
+    :return: Returns data frame with entire teams averaged player stats. In order of the date the game was played
     """
     # Set up directory for finding/saving player stats
     directory = os.getcwd() + "/data/players/" + year + "/"
@@ -220,7 +220,7 @@ def get_averaged_player_stats(player_ids, year, team):
     player_dataframes = {}
     for player_id in player_ids:
         try:
-            # Try to open averaged stats as if a previous team already did work we can just open it
+            # Try to open averaged stats as if a previous team already did work, we can just open it
             player_dataframes[player_id] = pd.read_csv(directory + player_id + "/Player_Averages.csv",
                                                        dtype={'GAME_ID': str})
         except Exception as e:
@@ -252,7 +252,7 @@ def get_averaged_player_stats(player_ids, year, team):
 
     # Create team dataframe by combining all player dataframes
     team_df = pd.concat(player_dataframes.values(), ignore_index=True)
-    # Sort by GAME_DATE so that all games are in chronological order, then by GAME_ID in case some games have same
+    # Sort by GAME_DATE so that all games are in chronological order, then by GAME_ID in case some games have the same
     # GAME_DATE and then by MIN so that each game has the player with the highest minutes at the top of that game_id
     team_df = team_df.sort_values(by=['GAME_DATE', 'GAME_ID', 'MIN'], ascending=[True, True, False])
     # Save dataframe so we can look at if we want
@@ -287,9 +287,9 @@ def prepare_data(schedule, year):
     away_column_names = make_column_names("AWAY_" + column_prefix, stats)
     schedule = set_up_columns(schedule, [["HOME_WIN_STREAK"]] + home_column_names)
 
-    # To make sure we get stats for a players whole season, we need to append to Players file in folder of player's id.
-    # Because of this, we need to make sure we delete any old data that might be in this years /data/players/year folder
-    # If we don't then we will have duplicate data
+    # To make sure we get stats for a players whole season, we need to append to Players file in folder of player's
+    # id. Because of this, we need to make sure we delete any old data that might be in this year's
+    # /data/players/year folder If we don't, then we will have duplicate data
     try:
         shutil.rmtree(os.getcwd() + "/data/players/" + year)
     except:
@@ -302,14 +302,14 @@ def prepare_data(schedule, year):
         # For each team get their schedule
         team_schedule[team] = schedule[schedule['MATCHUP'].str.contains(team)][
             ["GAME_ID", "GAME_DATE", "MATCHUP", "HOME_TEAM", "WINNER"]]
-        # Average player_stats and save all player ids for players who played on team
+        # Average player_stats and save all player ids for players who played on the team
         team_dataframes[team] = save_player_stats(team_schedule[team][["GAME_ID", "GAME_DATE"]], team, year)
 
     # Now that we have player stats, we can go through the season team by team again.
     # The reason this cannot be done in the same loop above is that we need to wait until all teams have run so a
     # player's stats are for the whole season
     for team in teams:
-        # Get the averaged dataframes for all players who played on team in season
+        # Get the averaged dataframes for all players who played on the team in season
         team_dataframes[team] = get_averaged_player_stats(team_dataframes[team], year, team)
         team_schedule[team] = team_schedule[team][GAMES_BACK + GAMES_BACK_BUFFER:]
         team_sch = team_schedule[team]
@@ -355,7 +355,7 @@ def prepare_data(schedule, year):
                 else:
                     current_win_loss_streak = -1
 
-            # Add players stats to schedule
+            # Add player's stats to schedule
             for i in range(0, NUM_PLAYER_PER_TEAM):
                 column_names = columns[i]
                 schedule.loc[schedule["GAME_ID"] == game, column_names] = (players_in_game.iloc[i][stats].to_numpy())
@@ -363,9 +363,8 @@ def prepare_data(schedule, year):
     # Get rid of any rows with no data
     schedule = schedule.dropna()
     # Convert the GAME_DATE column to 3 columns of integers
-    # @TODO fix setting with copy warning
     year_month_day = schedule["GAME_DATE"].str.split('-', expand=True)
-    schedule["GAME_DATE"] = year_month_day[0]
+    schedule.loc[:, "GAME_DATE"] = year_month_day[0]
     schedule = pd.concat([schedule.iloc[:, :2], year_month_day[1], schedule.iloc[:, 2:]], axis=1)
     schedule = pd.concat([schedule.iloc[:, :3], year_month_day[2], schedule.iloc[:, 3:]], axis=1)
     schedule = schedule.rename(columns={"GAME_DATE": "YEAR", 1: "MONTH", 2: "DAY"})
@@ -380,12 +379,8 @@ def prepare_data(schedule, year):
     return teams, schedule
 
 
-def log():
-    print("Retrying")
-
-
 @retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS)
-def get_game_data(game_id):
+def get_game_data(game_id, year):
     """
     Given a game id will return a dataframe containing data on what teams played, what players played and how many
     minutes. Specifically will save the team abbreviation, player id, player name and minutes. Minutes do
@@ -393,16 +388,18 @@ def get_game_data(game_id):
     with seconds. What I assume is 31 minutes and 35 seconds shows up as 31.0000:35. Cleaning fills all nones with 0
     and splits minutes by periods keeping only the first part. Turning 31.0000:35 into 31 meaning we DO NOT round
 
-    :param game_id: String with id of game we want data for. ids are from the NBA api
+    :param game_id: String with id of game we want data for. Ids are from the NBA api
+    :param year:
     :return: Data frame containing the team id, team abbreviation, player id, player name and minutes for
              given game
     """
     box_score_data = b_data.BoxScoreTraditionalV2(game_id=game_id)
     box_score_data = box_score_data.get_data_frames()[0]  # [["TEAM_ABBREVIATION", "PLAYER_ID", "PLAYER_NAME", "MIN"]]
     # Minutes are stored with seconds. 35 minutes 30 seconds is 35.0000:30
-    # The line below removes everything after the period
-    box_score_data["MIN"] = box_score_data["MIN"].str.split(".").str[0]
-    box_score_data = box_score_data.fillna(0)  # Data uses none instead of 0
+
+    if int(year) > 1995:
+        box_score_data["MIN"] = box_score_data["MIN"].str.split(".").str[0]
+        box_score_data = box_score_data.fillna(0)  # Data uses none instead of 0
     return box_score_data
 
 
@@ -411,7 +408,7 @@ def save_league_schedule(year):
     """
     Will save the league schedule for the given year. Will save the csv to
     .../data/games/year/games.csv.
-    Saves the GAME_ID and MATCHUP for each game in schedule. We need GAME_ID but could get rid of MATCHUP
+    Save the GAME_ID and MATCHUP for each game in schedule. We need GAME_ID but could get rid of MATCHUP
     keeping it for now for readability
 
     :param year: String containing the year we want schedule of
@@ -420,7 +417,7 @@ def save_league_schedule(year):
     folder_check(os.getcwd() + "/data/games/" + year)  # Check we have a /games/year folder
     league_data = l_data.LeagueGameLog(season=year)
     league_data = league_data.get_data_frames()[0][["GAME_ID", "GAME_DATE", "MATCHUP", "TEAM_ID", "WL"]]
-    # Add column for home team
+    # Add column for the home team
     league_data["HOME_TEAM"] = league_data["MATCHUP"].str[:3]
     # Rename TEAM_ID to HOME_TEAM_ID for more accurate name
     league_data = league_data.rename(columns={})
@@ -437,7 +434,7 @@ def save_league_schedule(year):
     league_data = league_data.rename(columns={"WL": "WINNER", "TEAM_ID": "HOME_TEAM_ID"})
 
     league_data["HOME_TEAM_WON"] = (league_data['HOME_TEAM'] == league_data['WINNER']).astype(int)
-    # Data set contains two instances for a single game one for the home team and one for away team
+    # Data set contains two instances for a single game, one for the home team and one for the away team
     # here we only take matchups with vs. instead of @ meaning we take all home team copies game
     league_data = league_data[league_data["MATCHUP"].str.contains("vs.", na=False)]
     # Change order so it's more readable for humans
@@ -452,18 +449,20 @@ def save_league_schedule(year):
 
 def thread_save_game_data(year, row):
     """
-    Expected to be called by multiple threads but not necessary. Will save data for a given GAME_ID (from row) and also
-    save career stats of all players who played in game. This functions uses get_game_data() to get data on players in
-    the game It saves game data it gets to
-    .../data/games/YEAR/GAME_ID/TEAM_ABBREVIATION/minutes.csv
+    Expected to be called by multiple threads but not necessary.
+    Will save data for a given GAME_ID (from row) and
+    also save career stats of all players who played in the game.
+    This functions uses get_game_data() to get data on
+    players in the game It saves game data it gets to .../data/games/YEAR/GAME_ID/TEAM_ABBREVIATION/minutes.csv
 
-    :param year: String with year game was played. Used to know what folder to save data to
+    :param year: String containing year game was played.
+    Used to know what folder to save data to
     :param row: Tuple expected to contain a GAME_ID value and MATCHUP value.
                     GAME_ID is from game played and used by NBA API to get data
-                    MATCHUP is string with team abbreviations playing. Ex: "LAC vs. LAL"
+                    MATCHUP is string with team abbreviations playing.
+                    Ex: "LAC vs. LAL"
     :return: Does not return anything
     """
-    # @TODO saving data for 1990 causes error with accessing team abbreviation. Try testing with older
     try:
         # Get data from row tuple
         game_id = row.GAME_ID
@@ -474,8 +473,7 @@ def thread_save_game_data(year, row):
             if game_id in GAME_PROCESSED:
                 return
             GAME_PROCESSED.add(game_id)
-
-        game_data = get_game_data(game_id)
+        game_data = get_game_data(game_id, year)
 
         # Get game data
         home_team = matchup[0:3]
@@ -492,35 +490,35 @@ def thread_save_game_data(year, row):
         # Save game data
         home_data.to_csv(home_directory + game_id + "_stats.csv", index=False)
         away_data.to_csv(away_directory + game_id + "_stats.csv", index=False)
+
     except Exception as e:
         print(str(e) + " for " + str(row))
 
 
 def save_download_data(year):
     """
-    Saves all data needed for model for given year. Uses save_league_schedule() to get league schedule for given year
-    and then feeds the given dataframe to thread_save_game_data() to process and save.
+    Saves all data needed for a model for a given year.Uses save_league_schedule() to get league schedule for a given
+    year and then feeds the given dataframe to thread_save_game_data() to process and save.
+
     :param year: String with year we want data for
     :return: Does not return anything
     """
+
     print("\nStarting download for NBA season " + year)
     start_time = time.time()
-    # Save and get game id for all games played for given year
+    # Save and get game id for all games played for a given year
     schedule = save_league_schedule(year)
-    # Make sure we have folder to save games to
+    # Make sure we have a folder to save games to
     folder_check(os.getcwd() + "/data/games/" + year)
     # Reset global variable used for gamesProcessed to save space in case of multiple years saved per run.
     global GAME_PROCESSED
     GAME_PROCESSED = set()
-    # Might want to consider another threading option
-    # For debugging does not seem to raise any errors even when there are some that stop function from working
+
     # Using schedule save data about players that played and their minutes
-    # @TODO Test and then possibly fix error where not all games get downloaded on first try.
     with ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
         executor.map(lambda row: thread_save_game_data(year, row), schedule.itertuples(index=False))
 
     print("Finished took " + str((time.time() - start_time) / 60) + " minutes to download")
-    # Save players stats
     return schedule
 
 
@@ -560,7 +558,7 @@ def main():
     # 'PHX', 'MIN', 'NOP', 'HOU', 'PHI', 'OKC'],
     # pd.read_csv("data/games/" + "2023" + "/schedule.csv", dtype={'GAME_ID': str}))
     # exit()
-    # @TODO Maybe add in start_position along with stats so we know what postion best players play
+    # @TODO Maybe add in start_position along with stats so we know what position best players play
     # Get information from user, so we know what seasons to download and/or prepare data for
     # Also asks user if they already have data downloaded, so we can skip download and skip to preparing that data
     years = input("What years would you like to download/prepare? If multiple just type them with a space like \"2020 "
@@ -590,7 +588,6 @@ def get_team_stats(teams, schedule):
     :param schedule:
     :return:
     """
-    print(c)
     # Loop through each team
     for i in range(0, len(teams)):
         current_team = teams[i]
@@ -608,12 +605,12 @@ def get_team_stats(teams, schedule):
 def get_data_for_model(years):
     """
     The function assumes that the data has already been downloaded and prepared for the years provided.
-    It also assumes that settings (GAMES_BACK, GAMES_BACK_BUFFER, NUM_PLAYER_PER_TEAM) used for all years is not only
+    It also assumes that settings (GAMES_BACK, GAMES_BACK_BUFFER, NUM_PLAYER_PER_TEAM) used for all years are not only
     the same but also the current settings of the program.
 
     :param years: Array of strings with each index being a year we would like nba data for
     :return: Returns two things
-             1. Numpy array of all the parameters
+             1. Numpy array of all parameters
              2. Numpy array with results
     """
     print("\nCollecting data for years: " + str(years) + "\nGAMES_BACK = " + str(GAMES_BACK) +
