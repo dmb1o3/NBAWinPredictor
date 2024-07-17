@@ -299,15 +299,15 @@ def main():
         years_to_examine = input("What years would you like to examine? If multiple just type them with a space like "
                                  "\"2020 2021 2022\" ").split()
 
-    # Ask user if we should scale data
-    print("\n   mDo you want to scale the data?")
-    print("1. Scale data")
-    print("2. Do not Scale Data")
-    user_answer = input("")
-
     # Get data, target values and features of data
     x, y, features = get_data_for_model(years_to_examine)
 
+    # Ask user if we should scale data
+    print("\nDo you want to scale the data?")
+    print("1. Scale data")
+    print("2. Do not Scale Data")
+    user_answer = input("")
+    # If they would like to scale data then scale it
     if user_answer == "1":
         # Scale data
         print("\nScaling data\n")
@@ -319,7 +319,6 @@ def main():
     print("1. Randomly Split Data")
     print("2. Sequentially")
     user_answer = input("")
-
     if user_answer == "1":
         print("\nRandomly Splitting Data\n")
         x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)

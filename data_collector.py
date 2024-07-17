@@ -9,13 +9,15 @@ import league_data as l_data
 import box_score_data as b_data
 from threading import Lock
 from concurrent.futures import ThreadPoolExecutor
+from retrying import retry
 
 # Global Variables
-NUM_CORES = os.cpu_count() + 4  # Used to know how many threads to use
+NUM_THREADS = 4  # Used to know how many threads to use when downloading individual data for games
 GAME_LOCK = Lock()  # Used to sync threads for saving data to gameProcessed
 GAME_PROCESSED = set()  # Saves data about game_ids we processed so threads don't do redundant work
 PLAYER_LOCK = Lock()  # Used to sync threads for saving data on playerProcessed
 PLAYER_PROCESSED = set()  # Saves data about player_ids we processed so threads don't do redundant work
+MAX_DOWNLOAD_ATTEMPTS = 3  # Set to -1 for infinite. Controls number of times to try to download from NBA api
 
 # Global Settings for data collection
 NUM_PLAYER_PER_TEAM = 5  # Number of players per team that we should save stats for
@@ -70,6 +72,7 @@ def folder_setup():
     folder_check(os.getcwd() + "/data")
     folder_check(os.getcwd() + "/data/games/")
     folder_check(os.getcwd() + "/data/players/")
+    folder_check(os.getcwd() + "/data/models/")
 
 
 def folder_check(directory):
@@ -174,6 +177,7 @@ def save_player_stats(team_schedule, team_abbrev, year):
             # Else create a dataframe for them
             else:
                 player_dataframes[player_id] = player_stats
+                player_dataframes[player_id] = player_stats
 
     folder_check(os.getcwd() + "/data/players/" + year)
     # For all player dataframes averages players games
@@ -269,7 +273,7 @@ def prepare_data(schedule, year):
     :param year: The year the nba schedule is from
     :return: Does not return anything but saves dataframe of data to "data/games/" + year + "/Final Dataset + MODIFIERS"
     """
-    print("Preparing data from NBA season " + year)
+    print("\nPreparing data from NBA season " + year)
     start_time = time.time()
     # Set up variables
     team_dataframes = {}  # Used to keep track of player_ids of players on team then used to store players dataframes
@@ -359,6 +363,7 @@ def prepare_data(schedule, year):
     # Get rid of any rows with no data
     schedule = schedule.dropna()
     # Convert the GAME_DATE column to 3 columns of integers
+    # @TODO fix setting with copy warning
     year_month_day = schedule["GAME_DATE"].str.split('-', expand=True)
     schedule["GAME_DATE"] = year_month_day[0]
     schedule = pd.concat([schedule.iloc[:, :2], year_month_day[1], schedule.iloc[:, 2:]], axis=1)
@@ -375,6 +380,11 @@ def prepare_data(schedule, year):
     return teams, schedule
 
 
+def log():
+    print("Retrying")
+
+
+@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS)
 def get_game_data(game_id):
     """
     Given a game id will return a dataframe containing data on what teams played, what players played and how many
@@ -396,6 +406,7 @@ def get_game_data(game_id):
     return box_score_data
 
 
+@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS)
 def save_league_schedule(year):
     """
     Will save the league schedule for the given year. Will save the csv to
@@ -435,6 +446,7 @@ def save_league_schedule(year):
     league_data = league_data.reindex(columns=desired_order)
     league_data.to_csv(os.getcwd() + "/data/games/" + year + "/schedule.csv", index=False)
 
+    print("League schedule for " + year + " has been saved")
     return league_data
 
 
@@ -451,32 +463,37 @@ def thread_save_game_data(year, row):
                     MATCHUP is string with team abbreviations playing. Ex: "LAC vs. LAL"
     :return: Does not return anything
     """
-    # Get data from row tuple
-    game_id = row.GAME_ID
-    matchup = row.MATCHUP
+    # @TODO saving data for 1990 causes error with accessing team abbreviation. Try testing with older
+    try:
+        # Get data from row tuple
+        game_id = row.GAME_ID
+        matchup = row.MATCHUP
 
-    # Check to make sure thread is not saving game we already saved
-    with GAME_LOCK:
-        if game_id in GAME_PROCESSED:
-            return
+        # Check to make sure thread is not saving game we already saved
+        with GAME_LOCK:
+            if game_id in GAME_PROCESSED:
+                return
+            GAME_PROCESSED.add(game_id)
+
         game_data = get_game_data(game_id)
-        GAME_PROCESSED.add(game_id)
 
-    # Get game data
-    home_team = matchup[0:3]
-    away_team = matchup[-3:]
-    home_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(home_team)]
-    away_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(away_team)]
+        # Get game data
+        home_team = matchup[0:3]
+        away_team = matchup[-3:]
+        home_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(home_team)]
+        away_data = game_data.loc[game_data['TEAM_ABBREVIATION'].str.contains(away_team)]
 
-    # Make sure we have folders to save to
-    directory = os.getcwd() + "/data/games/" + year
-    home_directory = directory + "/" + home_team + "/"
-    away_directory = directory + "/" + away_team + "/"
-    folder_check(home_directory)
-    folder_check(away_directory)
-    # Save game data
-    home_data.to_csv(home_directory + game_id + "_stats.csv", index=False)
-    away_data.to_csv(away_directory + game_id + "_stats.csv", index=False)
+        # Make sure we have folders to save to
+        directory = os.getcwd() + "/data/games/" + year
+        home_directory = directory + "/" + home_team + "/"
+        away_directory = directory + "/" + away_team + "/"
+        folder_check(home_directory)
+        folder_check(away_directory)
+        # Save game data
+        home_data.to_csv(home_directory + game_id + "_stats.csv", index=False)
+        away_data.to_csv(away_directory + game_id + "_stats.csv", index=False)
+    except Exception as e:
+        print(str(e) + " for " + str(row))
 
 
 def save_download_data(year):
@@ -486,7 +503,7 @@ def save_download_data(year):
     :param year: String with year we want data for
     :return: Does not return anything
     """
-    print("Starting download for NBA season " + year)
+    print("\nStarting download for NBA season " + year)
     start_time = time.time()
     # Save and get game id for all games played for given year
     schedule = save_league_schedule(year)
@@ -499,7 +516,7 @@ def save_download_data(year):
     # For debugging does not seem to raise any errors even when there are some that stop function from working
     # Using schedule save data about players that played and their minutes
     # @TODO Test and then possibly fix error where not all games get downloaded on first try.
-    with ThreadPoolExecutor(max_workers=NUM_CORES) as executor:
+    with ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
         executor.map(lambda row: thread_save_game_data(year, row), schedule.itertuples(index=False))
 
     print("Finished took " + str((time.time() - start_time) / 60) + " minutes to download")
@@ -529,7 +546,7 @@ def get_all_data(years, data_is_downloaded):
         # Prepare data for nba season
         teams = prepare_data(schedule, year)
         # Get team v team stats
-        get_team_stats(teams, schedule)
+        # get_team_stats(teams, schedule)
         #
 
 
@@ -538,11 +555,11 @@ def main():
     # help for team v team stats as some teams only play twice a year
     # TODO add column to track how many players from team are on team from game to game. So if 5 players and all 5 play
     # in next game its 5 if only 3 then 3. If in game after
-    #get_team_stats(['GSW', 'DEN', 'LAC', 'ORL', 'SAS', 'MEM', 'CHI', 'TOR', 'BKN', 'MIA', 'NYK', 'UTA', 'CHA',
-                    #'IND', 'MIL', 'LAL', 'ATL', 'SAC', 'POR', 'DAL', 'CLE', 'BOS', 'WAS', 'DET',
-                    #'PHX', 'MIN', 'NOP', 'HOU', 'PHI', 'OKC'],
-                   #pd.read_csv("data/games/" + "2023" + "/schedule.csv", dtype={'GAME_ID': str}))
-    #exit()
+    # get_team_stats(['GSW', 'DEN', 'LAC', 'ORL', 'SAS', 'MEM', 'CHI', 'TOR', 'BKN', 'MIA', 'NYK', 'UTA', 'CHA',
+    # 'IND', 'MIL', 'LAL', 'ATL', 'SAC', 'POR', 'DAL', 'CLE', 'BOS', 'WAS', 'DET',
+    # 'PHX', 'MIN', 'NOP', 'HOU', 'PHI', 'OKC'],
+    # pd.read_csv("data/games/" + "2023" + "/schedule.csv", dtype={'GAME_ID': str}))
+    # exit()
     # @TODO Maybe add in start_position along with stats so we know what postion best players play
     # Get information from user, so we know what seasons to download and/or prepare data for
     # Also asks user if they already have data downloaded, so we can skip download and skip to preparing that data
@@ -573,7 +590,7 @@ def get_team_stats(teams, schedule):
     :param schedule:
     :return:
     """
-    print(teams)
+    print(c)
     # Loop through each team
     for i in range(0, len(teams)):
         current_team = teams[i]
@@ -586,8 +603,6 @@ def get_team_stats(teams, schedule):
                                                  (schedule["MATCHUP"] == versus_team + " vs. " + current_team))]
             print(team_v_team_schedule)
             #
-
-
 
 
 def get_data_for_model(years):

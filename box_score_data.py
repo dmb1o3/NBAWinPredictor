@@ -117,7 +117,7 @@ class BoxScoreTraditionalV2(Endpoint):
         start_range=StartRange.default,
         proxy=None,
         headers=None,
-        timeout=30,
+        timeout=120,
         get_request=True,
     ):
         self.proxy = proxy
