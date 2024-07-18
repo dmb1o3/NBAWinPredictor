@@ -1,5 +1,8 @@
 import pandas as pd
+from sklearn.svm import SVC
+from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression, RidgeClassifier
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import GridSearchCV, train_test_split
@@ -264,6 +267,49 @@ def knn(x_train, x_test, y_train, y_test):
     run_model(x_train, x_test, y_train, y_test, best_model, False)
 
 
+def svc(x_train, x_test, y_train, y_test):
+    param_grid = [
+        {
+            'kernel': ["linear", "poly", "rbf", "sigmoid"],
+            'degree': range(1, 5, 1),
+            'gamma': ["scale", "auto", 0.2, 0.5, 0.7],
+            'coef0': [0.0, 0.2, 0.5, 0.7],
+            'shrinking': [True, False],
+
+        },
+    ]
+    print("\nSVC")
+    # Get best parameters for model
+    best_params = get_best_parameters(SVC(), param_grid, x_train, y_train)
+
+    # Get best values
+    best_kernel = best_params['kernel']
+    best_degree = best_params['degree']
+    best_gamma = best_params['gamma']
+    best_coef0 = best_params['coef0']
+    best_shrinking = best_params['shrinking']
+
+    best_model = SVC(kernel=best_kernel, degree=best_degree, gamma=best_gamma, coef0=best_coef0, shrinking=best_shrinking)
+    # Run model
+    run_model(x_train, x_test, y_train, y_test, best_model, False)
+
+
+def gaussian_process_classifier(x_train, x_test, y_train, y_test):
+    print("\nGaussian Process Classifier")
+
+    best_model = GaussianProcessClassifier()
+    # Run model
+    run_model(x_train, x_test, y_train, y_test, best_model, False)
+
+
+def gaussian_naive_bayes(x_train, x_test, y_train, y_test):
+    print("\nGaussian Naive bBayes")
+
+    best_model = GaussianNB()
+    # Run model
+    run_model(x_train, x_test, y_train, y_test, best_model, False)
+
+
 def bet_on_home_team(results):
     """
     Given the results will calculate the odds of winning by betting on the home team. It does this by calculating all
@@ -330,11 +376,14 @@ def main():
     print("If you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))
 
     # Run models
+    gaussian_process_classifier(x_train, x_test, y_train, y_test)
     logistic_regression(x_train, x_test, y_train, y_test, features)
     ridge_classification(x_train, x_test, y_train, y_test, features)
     random_forest(x_train, x_test, y_train, y_test)
     knn(x_train, x_test, y_train, y_test)
     gradient_boosting(x_train, x_test, y_train, y_test)
+    svc(x_train, x_test, y_train, y_test)
+
 
 
 if __name__ == "__main__":
