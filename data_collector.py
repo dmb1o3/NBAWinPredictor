@@ -142,6 +142,77 @@ def set_up_columns(schedule, home_columns):
     return schedule
 
 
+def is_thirty_one_month(month):
+    thirty_one_months = [1, 3, 5, 7, 8, 10, 12]
+    if month in thirty_one_months:
+        return True
+
+    return False
+
+
+def is_back_to_back(previous_date, current_date):
+    # Get strings from series
+    previous_date = previous_date.iloc[0]
+    current_date = current_date.iloc[0]
+    # Extract previous and current day
+    p_day = int(previous_date[8:])
+    c_day = int(current_date[8:])
+    # Extract previous and current month
+    p_month = int(previous_date[5:7])
+    c_month = int(current_date[5:7])
+    # Extract previous and current year
+    p_year = int(previous_date[0:4])
+    c_year = int(current_date[0:4])
+
+    # Handle december year skip
+    if p_month == 12 and p_day == 31 and p_year + 1 == c_year and c_month == 1 and c_day == 1:
+        return 1
+
+    # Should never happen since we go through data sequentially but just to be safe and in case we end up using
+    # preparing multiple years at some point
+    if p_year != c_year:
+        return 0
+
+    # All months have at least 28 days in them if the previous day + 1 is the current day then its b2b
+    if p_month == c_month and p_day < 28 and p_day + 1 == c_day:
+        return 1
+
+    # Handle february
+    if p_month == 2:
+        # See if leap year and
+        if p_year % 4 == 0 and p_day + 1 == c_day:
+            return 1
+        # Catch rollover
+        elif p_day == 29 or p_day == 28:
+            # For leap year
+            if p_year % 4 == 0 and p_day == 29 and c_day == 1:
+                return 1
+            elif p_day == 28 and c_day == 1:
+                return 1
+            else:
+                return 0
+        else:
+            return 0
+
+    # Handle months with 31 days
+    if is_thirty_one_month(p_month):
+        if p_month == c_month and p_day < 31 and p_day + 1 == c_day:
+            return 1
+        # Handle roll over
+        if p_day == 31 and c_day == 1 and p_month + 1 == c_month:
+            return 1
+
+    # Handle months with 30 days
+    else:
+        if p_month == c_month and p_day < 30 and p_day + 1 == c_day:
+            return 1
+        # Handle roll over
+        if p_day == 30 and c_day == 1 and p_month + 1 == c_month:
+            return 1
+
+    return 0
+
+
 def save_player_stats(team_schedule, team_abbrev, year):
     """
     When called will look at all games a team played from the given schedule. It will then make dataframes for each
@@ -285,7 +356,7 @@ def prepare_data(schedule, year):
     column_prefix = "PLAYER_"
     home_column_names = make_column_names("HOME_" + column_prefix, stats)
     away_column_names = make_column_names("AWAY_" + column_prefix, stats)
-    schedule = set_up_columns(schedule, [["HOME_WIN_STREAK"]] + home_column_names)
+    schedule = set_up_columns(schedule, [["HOME_WIN_STREAK", "HOME_B2B"]] + home_column_names)
 
     # To make sure we get stats for a players whole season, we need to append to Players file in folder of player's
     # id. Because of this, we need to make sure we delete any old data that might be in this year's
@@ -311,10 +382,7 @@ def prepare_data(schedule, year):
     for team in teams:
         # Get the averaged dataframes for all players who played on the team in season
         team_dataframes[team] = get_averaged_player_stats(team_dataframes[team], year, team)
-        team_schedule[team] = team_schedule[team][GAMES_BACK + GAMES_BACK_BUFFER:]
-        team_sch = team_schedule[team]
         # Right now we just set to 0 but for some teams since not start of season will be on win streak
-        # @TODO Check to see if this slices right seems to be off by an extra game. Stats seem fine but should check to
         games_not_processed = team_schedule[team][:GAMES_BACK + GAMES_BACK_BUFFER]
         # Loop through games not processed for a model so that we have accurate win streak for start of games we process
         current_win_loss_streak = 0
@@ -328,6 +396,11 @@ def prepare_data(schedule, year):
                     break
                 current_win_loss_streak += 1
 
+        # Get the previous game date so we know if back to back games
+        previous_game_date = games_not_processed["GAME_DATE"][-1:]
+        team_schedule[team] = team_schedule[team][GAMES_BACK + GAMES_BACK_BUFFER:]
+        team_sch = team_schedule[team]
+
         # Loop through team schedule
         for game in team_sch["GAME_ID"]:
             # Get players who played in game
@@ -336,12 +409,18 @@ def prepare_data(schedule, year):
             players_in_game = players_in_game.head(NUM_PLAYER_PER_TEAM)
             if team_sch.loc[team_sch["GAME_ID"] == game]["HOME_TEAM"].values[0] == team:
                 columns = home_column_names
-                # Add win streak stat to schedule
-                schedule.loc[schedule["GAME_ID"] == game, "HOME_WIN_STREAK"] = current_win_loss_streak
+                prefix = "HOME_"
             else:
                 columns = away_column_names
-                # Add win streak stat to schedule
-                schedule.loc[schedule["GAME_ID"] == game, "AWAY_WIN_STREAK"] = current_win_loss_streak
+                prefix = "AWAY_"
+
+            # Add win streak stat to schedule
+            schedule.loc[schedule["GAME_ID"] == game, prefix + "WIN_STREAK"] = current_win_loss_streak
+
+            # Add b2b
+            game_date = schedule.loc[schedule["GAME_ID"] == game]["GAME_DATE"]
+            schedule.loc[schedule["GAME_ID"] == game, prefix + "B2B"] = is_back_to_back(previous_game_date, game_date)
+            previous_game_date = game_date
 
             # Update win/loss streak
             if schedule.loc[schedule["GAME_ID"] == game]["WINNER"].values[0] == team:
@@ -572,6 +651,8 @@ def main():
         downloaded_data = True
     else:
         downloaded_data = False
+
+
 
     # Make sure we have basic folders needed for program setup
     folder_setup()
