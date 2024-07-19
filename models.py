@@ -8,7 +8,7 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import accuracy_score, mean_squared_error, classification_report
 from sklearn.preprocessing import StandardScaler
-from data_collector import get_data_for_model
+from data_collector import get_data_for_model, handle_year_input
 from sklearn.pipeline import Pipeline
 
 
@@ -343,7 +343,8 @@ def main():
     # If they would like to set their own change to desired years
     if user_answer == "2":
         years_to_examine = input("What years would you like to examine? If multiple just type them with a space like "
-                                 "\"2020 2021 2022\" ").split()
+                                 "\"2020 2021 2022\" ")
+        years_to_examine = handle_year_input(years_to_examine)
 
     # Get data, target values and features of data
     x, y, features = get_data_for_model(years_to_examine)
@@ -383,7 +384,6 @@ def main():
     knn(x_train, x_test, y_train, y_test)
     gradient_boosting(x_train, x_test, y_train, y_test)
     svc(x_train, x_test, y_train, y_test)
-
 
 
 if __name__ == "__main__":

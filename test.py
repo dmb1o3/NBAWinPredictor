@@ -1,9 +1,19 @@
-from data_collector import is_back_to_back
+from data_collector import is_back_to_back, handle_year_input
 from pandas import Series
 
 
+def test_handle_year_input():
+    print("Testing handle_year_input() from data_collector.py")
+    assert handle_year_input("2023") == ["2023"]
+    assert handle_year_input("2020 2021 2022 2023") == ["2020", "2021", "2022", "2023"]
+    assert handle_year_input("2020-2023") == ["2020", "2021", "2022", "2023"]
+    assert handle_year_input("2018 2020-2023") == ["2018", "2020", "2021", "2022", "2023"]
+    assert handle_year_input("2020-2023 2024") == ["2020", "2021", "2022", "2023", "2024"]
+    print("Everything Passed\n")
+
+
 def test_is_back_to_back():
-    print("Testing is back to back from data_collector.py")
+    print("Testing is_back_to_back() from data_collector.py")
     # Test sequential
     assert is_back_to_back(Series("2022-11-02"), Series("2022-11-03")) == 1
     # Test sequential but different month
@@ -50,14 +60,16 @@ def test_is_back_to_back():
 
     # Test rollover for february
     assert is_back_to_back(Series("2020-02-29"), Series("2020-03-01")) == 1
+    assert is_back_to_back(Series("1996-02-29"), Series("1996-03-01")) == 1
     assert is_back_to_back(Series("2022-02-28"), Series("2022-03-01")) == 1
 
-    print("Everything passed")
-
+    print("Everything passed\n")
 
 
 def main():
+    test_handle_year_input()
     test_is_back_to_back()
+
 
 if __name__ == "__main__":
     main()

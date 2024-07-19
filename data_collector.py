@@ -63,6 +63,29 @@ def dash_to_individual(years):
     return years
 
 
+def handle_year_input(inputs):
+    """
+    Given input from years will break down into array including dashed entries i.e.,
+    inputs = "2018, 2020-2023"
+    return = ["2018", "2019", "2020", "2021", "2022", "2023"]
+
+    :param inputs: String with input from user with spaces indicating separate years they want to look at
+    :return: Array of strings breaking down the input into individual indexes
+    """
+    inputs = inputs.split(" ")
+    years = []
+    for inpt in inputs:
+        if "-" in inpt:
+            years += dash_to_individual(inpt)
+        else:
+            years.append(inpt)
+
+    return years
+
+
+
+
+
 def folder_setup():
     """
     Makes sure that folders used in program are set up
@@ -143,6 +166,12 @@ def set_up_columns(schedule, home_columns):
 
 
 def is_thirty_one_month(month):
+    """
+    Will return True if it is a month with 31 days in it and False if not
+
+    :param month: Integer value representing a month i.e., Jan = 1, Feb = 2, Mar = 3 ...
+    :return: Boolean that is True if it is a month with 31 days in it and False if not
+    """
     thirty_one_months = [1, 3, 5, 7, 8, 10, 12]
     if month in thirty_one_months:
         return True
@@ -151,6 +180,14 @@ def is_thirty_one_month(month):
 
 
 def is_back_to_back(previous_date, current_date):
+    """
+    Given two dates will return 1 if dates are back to back (sequential) and 0 if not
+
+    :param previous_date: Series with date (yyyy-mm-dd) of previous game
+    :param current_date: Series with date (yyyy-mm-dd) of current game
+    :return: Return 1 if dates are back to back and 0 if not
+    """
+
     # Get strings from series
     previous_date = previous_date.iloc[0]
     current_date = current_date.iloc[0]
@@ -179,10 +216,10 @@ def is_back_to_back(previous_date, current_date):
 
     # Handle february
     if p_month == 2:
-        # See if leap year and
+        # See if leap year and sequential
         if p_year % 4 == 0 and p_day + 1 == c_day:
             return 1
-        # Catch rollover
+        # Catch rollover to next month
         elif p_day == 29 or p_day == 28:
             # For leap year
             if p_year % 4 == 0 and p_day == 29 and c_day == 1:
@@ -201,7 +238,6 @@ def is_back_to_back(previous_date, current_date):
         # Handle roll over
         if p_day == 31 and c_day == 1 and p_month + 1 == c_month:
             return 1
-
     # Handle months with 30 days
     else:
         if p_month == c_month and p_day < 30 and p_day + 1 == c_day:
@@ -604,12 +640,9 @@ def save_download_data(year):
 def get_all_data(years, data_is_downloaded):
     """
     Will get all data needed for a model for years given. The function also outputs the time it
-    takes to save data
+    takes to save and prepare data.
 
-    Functions Called
-    Uses save_league_data()
-
-    :param data_is_downloaded: Boolean that is true if data is downloaded for given years and false if not
+    :param data_is_downloaded: Boolean that is true if data is downloaded for all given years and false if not
     :param years: List of strings. Each index being a year we want NBA data for
     :return: Does not return anything
     """
@@ -642,7 +675,7 @@ def main():
     # Also asks user if they already have data downloaded, so we can skip download and skip to preparing that data
     years = input("What years would you like to download/prepare? If multiple just type them with a space like \"2020 "
                   "2021 2022\" ")
-    years = years.split()
+    years = handle_year_input(years)
     print("Do you have the data downloaded already? (Type number associated with choice)")
     print("1. Yes")
     print("2. No")
@@ -652,10 +685,10 @@ def main():
     else:
         downloaded_data = False
 
-
-
     # Make sure we have basic folders needed for program setup
     folder_setup()
+
+    # Get data for all years
     get_all_data(years, downloaded_data)
 
 
