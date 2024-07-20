@@ -15,11 +15,11 @@ from sklearn.pipeline import Pipeline
 
 RANDOM_STATE = 100
 
-
 # https://www.youtube.com/watch?v=egTylm6C2is
 
 # @TODO implement sequential feature selection and test out
 # @TODO add way to save and compare model stats based on years used, setttings for years and settings for model probaly some type of chart
+
 
 def get_best_parameters(model, param_grid, x_train, y_train):
     """
@@ -46,7 +46,7 @@ def get_best_parameters(model, param_grid, x_train, y_train):
     return best_params
 
 
-def run_model(x_train, x_test, y_train, y_test, model, notClassifier):
+def run_model(x_train, x_test, y_train, y_test, model, notClassifier, settings):
     """
     Will run model on data given
 
@@ -56,6 +56,7 @@ def run_model(x_train, x_test, y_train, y_test, model, notClassifier):
     :param y_test:  Array containing target values for testing data
     :param model:   Scikit-learn model to run on data
     :param notClassifier: Boolean to know if model is classification or regression. Determines if we calc and print MSE
+    :param settings:
     :return: Returns a scikit-learn model after being trained and tested
     """
     # Train model
@@ -70,7 +71,9 @@ def run_model(x_train, x_test, y_train, y_test, model, notClassifier):
     print(f"Accuracy: {accuracy:.2f}")
     if notClassifier:
         print(f"Mean squared error: {mse:.2f}")
+    print("Testing data Classification Report")
     print(class_report)
+    print(settings)
 
     """
     # Printing predictions
@@ -81,7 +84,7 @@ def run_model(x_train, x_test, y_train, y_test, model, notClassifier):
     return model
 
 
-def logistic_regression(x_train, x_test, y_train, y_test, features):
+def logistic_regression(x_train, x_test, y_train, y_test, features, settings):
     # Max_iter settings for saga solvers. Other models can go lower but saga solvers will through convergence errors
     sag_max_iter_start = 500
     sag_max_iter_end = 1500
@@ -137,7 +140,7 @@ def logistic_regression(x_train, x_test, y_train, y_test, features):
     best_max_iter = best_params['max_iter']
     model = LogisticRegression(penalty=best_penalty, solver=best_solver, l1_ratio=best_l1_ratio, max_iter=best_max_iter)
 
-    model = run_model(x_train, x_test, y_train, y_test, model, False)
+    model = run_model(x_train, x_test, y_train, y_test, model, False, settings)
 
     # Set up data frame so easier to understand what features are being used
     d = pd.DataFrame({"FEATURES": features, "COEFFICIENT": model.coef_[0]})
@@ -146,7 +149,7 @@ def logistic_regression(x_train, x_test, y_train, y_test, features):
     d.to_csv("data/models/Linear_Regression_Features_COEF.csv", index=False)
 
 
-def ridge_classification(x_train, x_test, y_train, y_test, features):
+def ridge_classification(x_train, x_test, y_train, y_test, features, settings):
     param_grid = [
         {
             'solver': ["sag", "saga"],
@@ -177,7 +180,7 @@ def ridge_classification(x_train, x_test, y_train, y_test, features):
     best_positive = best_params['positive']
     model = RidgeClassifier(solver=best_solver, alpha=best_alpha, max_iter=best_max_iter, positive=best_positive)
 
-    model = run_model(x_train, x_test, y_train, y_test, model, False)
+    model = run_model(x_train, x_test, y_train, y_test, model, False, settings)
 
     # Set up data frame so easier to understand what features are being used
     d = pd.DataFrame({"FEATURES": features, "COEFFICIENT": model.coef_[0]})
@@ -186,7 +189,7 @@ def ridge_classification(x_train, x_test, y_train, y_test, features):
     d.to_csv("data/models/Ridge_Classifier_Features_COEF.csv", index=False)
 
 
-def random_forest(x_train, x_test, y_train, y_test):
+def random_forest(x_train, x_test, y_train, y_test, settings):
     # Set up param_grid for hyperparameter tuning
     param_grid = {
         'n_estimators': range(10, 50, 10),
@@ -219,10 +222,10 @@ def random_forest(x_train, x_test, y_train, y_test):
     selected_features = model.decision_path(x_train)
     print(selected_features)
     """
-    run_model(x_train, x_test, y_train, y_test, model, False)
+    run_model(x_train, x_test, y_train, y_test, model, False, settings)
 
 
-def gradient_boosting(x_train, x_test, y_train, y_test):
+def gradient_boosting(x_train, x_test, y_train, y_test, settings):
     # Set up param_grid for hyperparameter tuning
     param_grid = {
         'loss': ["exponential", "log_loss"],
@@ -247,10 +250,10 @@ def gradient_boosting(x_train, x_test, y_train, y_test):
                                        criterion=best_criterion, min_samples_split=best_min_samples_split,
                                        min_samples_leaf=best_min_samples_leaf, max_depth=best_max_depth)
 
-    run_model(x_train, x_test, y_train, y_test, model, False)
+    run_model(x_train, x_test, y_train, y_test, model, False, settings)
 
 
-def knn(x_train, x_test, y_train, y_test):
+def knn(x_train, x_test, y_train, y_test, settings):
     param_grid = {
         'n_neighbors': range(2, 44, 6),
         'weights': ['uniform', 'distance'],
@@ -268,10 +271,10 @@ def knn(x_train, x_test, y_train, y_test):
     best_algorithm = best_params['algorithm']
     best_model = KNeighborsClassifier(n_neighbors=best_k, weights=best_weights, p=best_p, algorithm=best_algorithm)
     # Run model
-    run_model(x_train, x_test, y_train, y_test, best_model, False)
+    run_model(x_train, x_test, y_train, y_test, best_model, False, settings)
 
 
-def svc(x_train, x_test, y_train, y_test):
+def svc(x_train, x_test, y_train, y_test, settings):
     param_grid = [
         {
             'kernel': ["linear", "poly", "rbf", "sigmoid"],
@@ -295,23 +298,23 @@ def svc(x_train, x_test, y_train, y_test):
 
     best_model = SVC(kernel=best_kernel, degree=best_degree, gamma=best_gamma, coef0=best_coef0, shrinking=best_shrinking)
     # Run model
-    run_model(x_train, x_test, y_train, y_test, best_model, False)
+    run_model(x_train, x_test, y_train, y_test, best_model, False, settings)
 
 
-def gaussian_process_classifier(x_train, x_test, y_train, y_test):
+def gaussian_process_classifier(x_train, x_test, y_train, y_test, settings):
     print("\nGaussian Process Classifier")
 
     best_model = GaussianProcessClassifier()
     # Run model
-    run_model(x_train, x_test, y_train, y_test, best_model, False)
+    run_model(x_train, x_test, y_train, y_test, best_model, False, settings)
 
 
-def gaussian_naive_bayes(x_train, x_test, y_train, y_test):
+def gaussian_naive_bayes(x_train, x_test, y_train, y_test, settings):
     print("\nGaussian Naive bBayes")
 
     best_model = GaussianNB()
     # Run model
-    run_model(x_train, x_test, y_train, y_test, best_model, False)
+    run_model(x_train, x_test, y_train, y_test, best_model, False, settings)
 
 
 def bet_on_home_team(results):
@@ -350,15 +353,31 @@ def main():
                                  "\"2020 2021 2022\" ")
         years_to_examine = handle_year_input(years_to_examine)
 
+    # Start setting up setings
+    settings = "Done using data from " + str(years_to_examine)
     # Get data, target values and features of data
     x, y, features = get_data_for_model(years_to_examine)
 
-    # Ask user if we should scale data
+    # Ask user how we should split data
+    print("\nFor the seasons entered do you want randomly split data or go sequentially?")
+    print("1. Randomly Split Data")
+    print("2. Sequentially")
+    user_answer = input("")
+    if user_answer == "1":
+        print("\nRandomly Splitting Data\n")
+        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=RANDOM_STATE)
+        settings += ", with Randomly Split Data"
+    else:
+        print("\nSplitting Data Sequential\n")
+        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, shuffle=False, random_state=RANDOM_STATE)
+        settings += ", with Sequentially Split Data"
+
+    # Ask user if we should balance data
     print("\nDo you want to balance the amount of games by class?")
     print("1. Balance data")
     print("2. Do not balance Data")
     user_answer = input("")
-    # If they would like to scale data then scale it
+    # If they would like to balance data then balance it
     if user_answer == "1":
         # Ask how they want to balance
         print("\nHow do you want to balance classes?")
@@ -367,10 +386,15 @@ def main():
         user_answer = input("")
         if user_answer == "1":
             ros = RandomOverSampler(random_state=RANDOM_STATE)
-            x, y = ros.fit_resample(x, y)
+            x_train, y_train = ros.fit_resample(x_train, y_train)
+            settings += ", with Balanced Classes by oversampling minority"
+
         else:
             rus = RandomUnderSampler(random_state=RANDOM_STATE)
-            x, y = rus.fit_resample(x, y)
+            x_train, y_train = rus.fit_resample(x_train, y_train)
+            settings += ", with Balanced Classes by under sampling majority"
+    else:
+        settings += ", with Unbalanced Classes"
 
     # Ask user if we should scale data
     print("\nDo you want to scale the data?")
@@ -382,31 +406,23 @@ def main():
         # Scale data
         print("\nScaling data\n")
         scaler = StandardScaler()
-        x = scaler.fit_transform(x)
-
-    # Ask user how we should split data
-    print("For the seasons entered do you want randomly split data or go sequentially?")
-    print("1. Randomly Split Data")
-    print("2. Sequentially")
-    user_answer = input("")
-    if user_answer == "1":
-        print("\nRandomly Splitting Data\n")
-        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=RANDOM_STATE)
+        x_train = scaler.fit_transform(x_train)
+        x_test = scaler.fit_transform(x_test)
+        settings += ", with scaled data"
     else:
-        print("\nSplitting Data Sequential\n")
-        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, shuffle=False, random_state=RANDOM_STATE)
+        settings += ", with unscaled data"
 
     # Find out the baseline by calculating odds home team win
     print("If you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))
 
     # Run models
-    gaussian_process_classifier(x_train, x_test, y_train, y_test)
-    logistic_regression(x_train, x_test, y_train, y_test, features)
-    ridge_classification(x_train, x_test, y_train, y_test, features)
-    random_forest(x_train, x_test, y_train, y_test)
-    knn(x_train, x_test, y_train, y_test)
-    gradient_boosting(x_train, x_test, y_train, y_test)
-    svc(x_train, x_test, y_train, y_test)
+    gaussian_process_classifier(x_train, x_test, y_train, y_test, settings)
+    logistic_regression(x_train, x_test, y_train, y_test, features, settings)
+    ridge_classification(x_train, x_test, y_train, y_test, features, settings)
+    random_forest(x_train, x_test, y_train, y_test, settings)
+    knn(x_train, x_test, y_train, y_test, settings)
+    gradient_boosting(x_train, x_test, y_train, y_test, settings)
+    svc(x_train, x_test, y_train, y_test, settings)
 
 
 if __name__ == "__main__":
