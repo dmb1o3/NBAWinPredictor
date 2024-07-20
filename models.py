@@ -9,7 +9,11 @@ from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import accuracy_score, mean_squared_error, classification_report
 from sklearn.preprocessing import StandardScaler
 from data_collector import get_data_for_model, handle_year_input
+from imblearn.over_sampling import RandomOverSampler
+from imblearn.under_sampling import RandomUnderSampler
 from sklearn.pipeline import Pipeline
+
+RANDOM_STATE = 100
 
 
 # https://www.youtube.com/watch?v=egTylm6C2is
@@ -350,6 +354,25 @@ def main():
     x, y, features = get_data_for_model(years_to_examine)
 
     # Ask user if we should scale data
+    print("\nDo you want to balance the amount of games by class?")
+    print("1. Balance data")
+    print("2. Do not balance Data")
+    user_answer = input("")
+    # If they would like to scale data then scale it
+    if user_answer == "1":
+        # Ask how they want to balance
+        print("\nHow do you want to balance classes?")
+        print("1. Oversample Minority")
+        print("2. Undersample Majority")
+        user_answer = input("")
+        if user_answer == "1":
+            ros = RandomOverSampler(random_state=RANDOM_STATE)
+            x, y = ros.fit_resample(x, y)
+        else:
+            rus = RandomUnderSampler(random_state=RANDOM_STATE)
+            x, y = rus.fit_resample(x, y)
+
+    # Ask user if we should scale data
     print("\nDo you want to scale the data?")
     print("1. Scale data")
     print("2. Do not Scale Data")
@@ -368,10 +391,10 @@ def main():
     user_answer = input("")
     if user_answer == "1":
         print("\nRandomly Splitting Data\n")
-        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=100)
+        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, random_state=RANDOM_STATE)
     else:
         print("\nSplitting Data Sequential\n")
-        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, shuffle=False, random_state=100)
+        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, shuffle=False, random_state=RANDOM_STATE)
 
     # Find out the baseline by calculating odds home team win
     print("If you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))

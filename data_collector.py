@@ -740,7 +740,7 @@ def get_data_for_model(years):
     data = pd.concat(data, ignore_index=True)
 
     # Convert parameters to a numpy array
-    extra_columns = ["GAME_ID", "YEAR"]
+    extra_columns = ["GAME_ID"]
     invalid_cols = ["MATCHUP", "WINNER", "HOME_TEAM", "HOME_TEAM_WON"]
     x = data.drop(columns=invalid_cols + extra_columns)
     x.to_csv("data/models/Features.csv", index=False)
