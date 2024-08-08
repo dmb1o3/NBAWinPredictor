@@ -11,14 +11,36 @@ from sklearn.preprocessing import StandardScaler
 from data_collector import get_data_for_model, handle_year_input
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
+from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn.pipeline import Pipeline
 
 RANDOM_STATE = 100
 
+
 # https://www.youtube.com/watch?v=egTylm6C2is
 
-# @TODO implement sequential feature selection and test out
-# @TODO add way to save and compare model stats based on years used, setttings for years and settings for model probaly some type of chart
+#  TODO add way to save and compare model stats based on
+#  years used, settings for years and settings for model probably some type of chart
+
+
+def apply_sfs_model(model, x_train, y_train, x_test, sfs_settings):
+    """
+    Will run a model and return the best features using Sequential feature selection.
+
+    :param model: Model to find best features for
+    :param x_train: Training data for model
+    :param y_train: Outcome of training data
+    :param x_test: Testing data for model
+    :param sfs_settings: Dictionary containing settings for sfs
+    :return: A tuple containing transformed training data and then the transformed testing data
+    """
+    sfs = SequentialFeatureSelector(model, n_features_to_select=sfs_settings["n_features"], n_jobs=-1,
+                                    direction=sfs_settings["direction"])
+    # Fit to training data
+    sfs.fit(x_train, y_train)
+    print("Features selected " + str(sfs.transform(x_train).shape[1]))
+    # Transform training and test data and return results
+    return sfs.transform(x_train), sfs.transform(x_test)
 
 
 def get_best_parameters(model, param_grid, x_train, y_train):
@@ -46,7 +68,7 @@ def get_best_parameters(model, param_grid, x_train, y_train):
     return best_params
 
 
-def run_model(x_train, x_test, y_train, y_test, model, notClassifier, settings):
+def run_model(x_train, x_test, y_train, y_test, model, not_classifier, settings):
     """
     Will run model on data given
 
@@ -55,8 +77,8 @@ def run_model(x_train, x_test, y_train, y_test, model, notClassifier, settings):
     :param y_train: Array containing target values for training data
     :param y_test:  Array containing target values for testing data
     :param model:   Scikit-learn model to run on data
-    :param notClassifier: Boolean to know if model is classification or regression. Determines if we calc and print MSE
-    :param settings:
+    :param not_classifier: Boolean to know if model is classification or regression. Determine if we calc and print MSE
+    :param settings: String containing settings used for data collection and preparing
     :return: Returns a scikit-learn model after being trained and tested
     """
     # Train model
@@ -69,7 +91,7 @@ def run_model(x_train, x_test, y_train, y_test, model, notClassifier, settings):
     mse = mean_squared_error(y_test, y_pred)
     class_report = classification_report(y_test, y_pred, target_names=["Home Team Lost", "Home Team Won"])
     print(f"Accuracy: {accuracy:.2f}")
-    if notClassifier:
+    if not_classifier:
         print(f"Mean squared error: {mse:.2f}")
     print("Testing data Classification Report")
     print(class_report)
@@ -84,7 +106,7 @@ def run_model(x_train, x_test, y_train, y_test, model, notClassifier, settings):
     return model
 
 
-def logistic_regression(x_train, x_test, y_train, y_test, features, settings):
+def logistic_regression(x_train, x_test, y_train, y_test, features, sfs_settings, settings):
     # Max_iter settings for saga solvers. Other models can go lower but saga solvers will through convergence errors
     sag_max_iter_start = 500
     sag_max_iter_end = 1500
@@ -95,7 +117,7 @@ def logistic_regression(x_train, x_test, y_train, y_test, features, settings):
     max_iter_end = 1000
     max_iter_step = 50
 
-    # Best settings on 2020 - 2023 is {'max_iter': 150, 'penalty': 'l1', 'solver': 'liblinear'}
+    # Best settings on 2020-2023 is {'max_iter': 150, 'penalty': 'l1', 'solver': 'liblinear'}
     # Best cross-validation score: 0.60
     # Accuracy: 0.65
     # Mean squared error: 0.35
@@ -133,7 +155,10 @@ def logistic_regression(x_train, x_test, y_train, y_test, features, settings):
     ]
 
     print("\nLogisticRegression")
-    best_params = get_best_parameters(LogisticRegression(), param_grid, x_train, y_train,)
+    if sfs_settings["apply_sfs"]:
+        x_train, x_test = apply_sfs_model(LogisticRegression(), x_train, y_train, x_test, sfs_settings)
+
+    best_params = get_best_parameters(LogisticRegression(), param_grid, x_train, y_train, )
     best_solver = best_params['solver']
     best_penalty = best_params['penalty']
     best_l1_ratio = best_params['l1_ratio']
@@ -143,13 +168,13 @@ def logistic_regression(x_train, x_test, y_train, y_test, features, settings):
     model = run_model(x_train, x_test, y_train, y_test, model, False, settings)
 
     # Set up data frame so easier to understand what features are being used
-    d = pd.DataFrame({"FEATURES": features, "COEFFICIENT": model.coef_[0]})
+    # d = pd.DataFrame({"FEATURES": features, "COEFFICIENT": model.coef_[0]})
     # Sort them by coefficients absolute value and then save
-    d = d.sort_values(["COEFFICIENT"], key=abs, ascending=False)
-    d.to_csv("data/models/Linear_Regression_Features_COEF.csv", index=False)
+    # d = d.sort_values(["COEFFICIENT"], key=abs, ascending=False)
+    # d.to_csv("data/models/Linear_Regression_Features_COEF.csv", index=False)
 
 
-def ridge_classification(x_train, x_test, y_train, y_test, features, settings):
+def ridge_classification(x_train, x_test, y_train, y_test, features, sfs_settings, settings):
     param_grid = [
         {
             'solver': ["sag", "saga"],
@@ -173,6 +198,9 @@ def ridge_classification(x_train, x_test, y_train, y_test, features, settings):
     ]
 
     print("\nRidge Classifier")
+    if sfs_settings["apply_sfs"]:
+        x_train, x_test = apply_sfs_model(RidgeClassifier(), x_train, y_train, x_test, sfs_settings)
+
     best_params = get_best_parameters(RidgeClassifier(), param_grid, x_train, y_train)
     best_solver = best_params['solver']
     best_alpha = best_params['alpha']
@@ -183,24 +211,26 @@ def ridge_classification(x_train, x_test, y_train, y_test, features, settings):
     model = run_model(x_train, x_test, y_train, y_test, model, False, settings)
 
     # Set up data frame so easier to understand what features are being used
-    d = pd.DataFrame({"FEATURES": features, "COEFFICIENT": model.coef_[0]})
+    # d = pd.DataFrame({"FEATURES": features, "COEFFICIENT": model.coef_[0]})
     # Sort them by coefficients absolute value and then save
-    d = d.sort_values(["COEFFICIENT"], key=abs, ascending=False)
-    d.to_csv("data/models/Ridge_Classifier_Features_COEF.csv", index=False)
+    # d = d.sort_values(["COEFFICIENT"], key=abs, ascending=False)
+    # d.to_csv("data/models/Ridge_Classifier_Features_COEF.csv", index=False)
 
 
-def random_forest(x_train, x_test, y_train, y_test, settings):
+def random_forest(x_train, x_test, y_train, y_test, sfs_settings, settings):
     # Set up param_grid for hyperparameter tuning
     param_grid = {
         'n_estimators': range(10, 50, 10),
         'criterion': ["gini", "entropy", "log_loss"],
-        'max_depth': list(range(20, 160, 20)),  # + [None],
+        'max_depth': list(range(20, 100, 20)),  # + [None],
         'max_features': ["sqrt", "log2"],  # , None],
         'min_samples_split': [2, 5, 10],
         'min_samples_leaf': [1, 4],
         'bootstrap': [True, False]
     }
     print("\nRandomForestClassifier")
+    if sfs_settings["apply_sfs"]:
+        x_train, x_test = apply_sfs_model(RandomForestClassifier(), x_train, y_train, x_test, sfs_settings)
 
     # Find best parameters for model
     best_params = get_best_parameters(RandomForestClassifier(), param_grid, x_train, y_train)
@@ -225,7 +255,7 @@ def random_forest(x_train, x_test, y_train, y_test, settings):
     run_model(x_train, x_test, y_train, y_test, model, False, settings)
 
 
-def gradient_boosting(x_train, x_test, y_train, y_test, settings):
+def gradient_boosting(x_train, x_test, y_train, y_test, sfs_settings, settings):
     # Set up param_grid for hyperparameter tuning
     param_grid = {
         'loss': ["exponential", "log_loss"],
@@ -237,6 +267,9 @@ def gradient_boosting(x_train, x_test, y_train, y_test, settings):
         'max_depth': [2, 3, 7]  # [None]
     }
     print("\nGradientBoostingClassifier")
+    if sfs_settings["apply_sfs"]:
+        x_train, x_test = apply_sfs_model(GradientBoostingClassifier(), x_train, y_train, x_test, sfs_settings)
+
     best_params = get_best_parameters(GradientBoostingClassifier(), param_grid, x_train, y_train)
     best_loss = best_params['loss']
     best_learning_rate = best_params['learning_rate']
@@ -253,7 +286,7 @@ def gradient_boosting(x_train, x_test, y_train, y_test, settings):
     run_model(x_train, x_test, y_train, y_test, model, False, settings)
 
 
-def knn(x_train, x_test, y_train, y_test, settings):
+def knn(x_train, x_test, y_train, y_test, sfs_settings, settings):
     param_grid = {
         'n_neighbors': range(2, 44, 6),
         'weights': ['uniform', 'distance'],
@@ -261,6 +294,9 @@ def knn(x_train, x_test, y_train, y_test, settings):
         'algorithm': ['auto', 'ball_tree', 'kd_tree', 'brute']
     }
     print("\nKNN")
+    if sfs_settings["apply_sfs"]:
+        x_train, x_test = apply_sfs_model(KNeighborsClassifier(), x_train, y_train, x_test, sfs_settings)
+
     # Get best parameters for model
     best_params = get_best_parameters(KNeighborsClassifier(), param_grid, x_train, y_train)
 
@@ -274,7 +310,7 @@ def knn(x_train, x_test, y_train, y_test, settings):
     run_model(x_train, x_test, y_train, y_test, best_model, False, settings)
 
 
-def svc(x_train, x_test, y_train, y_test, settings):
+def svc(x_train, x_test, y_train, y_test, sfs_settings, settings):
     param_grid = [
         {
             'kernel': ["linear", "poly", "rbf", "sigmoid"],
@@ -286,6 +322,9 @@ def svc(x_train, x_test, y_train, y_test, settings):
         },
     ]
     print("\nSVC")
+    if sfs_settings["apply_sfs"]:
+        x_train, x_test = apply_sfs_model(SVC(), x_train, y_train, x_test, sfs_settings)
+
     # Get best parameters for model
     best_params = get_best_parameters(SVC(), param_grid, x_train, y_train)
 
@@ -296,25 +335,51 @@ def svc(x_train, x_test, y_train, y_test, settings):
     best_coef0 = best_params['coef0']
     best_shrinking = best_params['shrinking']
 
-    best_model = SVC(kernel=best_kernel, degree=best_degree, gamma=best_gamma, coef0=best_coef0, shrinking=best_shrinking)
+    best_model = SVC(kernel=best_kernel, degree=best_degree, gamma=best_gamma, coef0=best_coef0,
+                     shrinking=best_shrinking)
     # Run model
     run_model(x_train, x_test, y_train, y_test, best_model, False, settings)
 
 
-def gaussian_process_classifier(x_train, x_test, y_train, y_test, settings):
+def gaussian_process_classifier(x_train, x_test, y_train, y_test, sfs_settings, settings):
     print("\nGaussian Process Classifier")
+    if sfs_settings["apply_sfs"]:
+        x_train, x_test = apply_sfs_model(GaussianProcessClassifier(), x_train, y_train, x_test, sfs_settings)
 
     best_model = GaussianProcessClassifier()
     # Run model
     run_model(x_train, x_test, y_train, y_test, best_model, False, settings)
 
 
-def gaussian_naive_bayes(x_train, x_test, y_train, y_test, settings):
+def gaussian_naive_bayes(x_train, x_test, y_train, y_test, sfs_settings, settings):
     print("\nGaussian Naive bBayes")
+    if sfs_settings["apply_sfs"]:
+        x_train, x_test = apply_sfs_model(GaussianNB(), x_train, y_train, x_test, sfs_settings)
 
     best_model = GaussianNB()
     # Run model
     run_model(x_train, x_test, y_train, y_test, best_model, False, settings)
+
+
+def get_sfs_settings(sfs_settings):
+    print("How many features would you like to select? Type auto to use auto setting")
+    n_features = input().lower()
+    if n_features != "auto":
+        try:
+            n_features = int(n_features)
+        except TypeError:
+            raise TypeError("Only integer or auto allowed as input")
+
+    sfs_settings["n_features"] = n_features
+
+    print("\nDo you want to perform selection forward or backwards?")
+    print("1. Forward")
+    print("2. Backward")
+    user_input = input()
+    if user_input != "1":
+        sfs_settings["direction"] = "forward"
+    else:
+        sfs_settings["direction"] = "backward"
 
 
 def bet_on_home_team(results):
@@ -337,7 +402,9 @@ def bet_on_home_team(results):
 
 
 def main():
+    # @TODO Look into implementing validation set
     # @TODO test out model using training data in order for certain years maybe 2020-2022 and testing data as 2023
+    # @TODO Change how we get data and test using dataframes. If we can will be easier to save data about sfs
     # Default years to use as data
     years_to_examine = ["2020", "2021", "2022", "2023"]
 
@@ -369,7 +436,8 @@ def main():
         settings += ", with Randomly Split Data"
     else:
         print("\nSplitting Data Sequential\n")
-        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, shuffle=False, random_state=RANDOM_STATE)
+        x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.2, shuffle=False,
+                                                            random_state=RANDOM_STATE)
         settings += ", with Sequentially Split Data"
 
     # Ask user if we should balance data
@@ -387,12 +455,12 @@ def main():
         if user_answer == "1":
             ros = RandomOverSampler(random_state=RANDOM_STATE)
             x_train, y_train = ros.fit_resample(x_train, y_train)
-            settings += ", with Balanced Classes by oversampling minority"
+            settings += ", with Balanced Classes by Over Sampling Minority"
 
         else:
             rus = RandomUnderSampler(random_state=RANDOM_STATE)
             x_train, y_train = rus.fit_resample(x_train, y_train)
-            settings += ", with Balanced Classes by under sampling majority"
+            settings += ", with Balanced Classes by Under Sampling Majority"
     else:
         settings += ", with Unbalanced Classes"
 
@@ -408,21 +476,35 @@ def main():
         scaler = StandardScaler()
         x_train = scaler.fit_transform(x_train)
         x_test = scaler.fit_transform(x_test)
-        settings += ", with scaled data"
+        settings += ", with Scaled Data"
     else:
-        settings += ", with unscaled data"
+        settings += ", with Unscaled Data"
+
+    # Ask user if we should apply sfs
+    print("\nDo you want to apply sequential feature selection?")
+    print("1. Apply SFS")
+    print("2. Do not apply SFS")
+    user_answer = input("")
+    sfs_settings = {}
+    if user_answer == "1":
+        sfs_settings["apply_sfs"] = True
+        get_sfs_settings(sfs_settings)
+        settings += ", with SFS applied"
+    else:
+        sfs_settings["apply_sfs"] = False
+        settings += ", with SFS not applied"
 
     # Find out the baseline by calculating odds home team win
-    print("If you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))
+    print("\nIf you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))
 
     # Run models
-    gaussian_process_classifier(x_train, x_test, y_train, y_test, settings)
-    logistic_regression(x_train, x_test, y_train, y_test, features, settings)
-    ridge_classification(x_train, x_test, y_train, y_test, features, settings)
-    random_forest(x_train, x_test, y_train, y_test, settings)
-    knn(x_train, x_test, y_train, y_test, settings)
-    gradient_boosting(x_train, x_test, y_train, y_test, settings)
-    svc(x_train, x_test, y_train, y_test, settings)
+    random_forest(x_train, x_test, y_train, y_test, sfs_settings, settings)
+    logistic_regression(x_train, x_test, y_train, y_test, features, sfs_settings, settings)
+    ridge_classification(x_train, x_test, y_train, y_test, features, sfs_settings, settings)
+    gaussian_process_classifier(x_train, x_test, y_train, y_test, sfs_settings, settings)
+    knn(x_train, x_test, y_train, y_test, sfs_settings, settings)
+    gradient_boosting(x_train, x_test, y_train, y_test, sfs_settings, settings)
+    svc(x_train, x_test, y_train, y_test, sfs_settings, settings)
 
 
 if __name__ == "__main__":

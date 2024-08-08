@@ -661,9 +661,6 @@ def get_all_data(years, data_is_downloaded):
 
         # Prepare data for nba season
         teams = prepare_data(schedule, year)
-        # Get team v team stats
-        # get_team_stats(teams, schedule)
-        #
 
 
 def get_position(season, team_id):
@@ -693,21 +690,11 @@ def main():
     print(box_score_data.to_string())
     print(get_coach("2023", "1610612749"))
     exit()"""
-    # TODO look into adding player position
-    # TODO in box_score_data look at use starter bench and converting it to an average
+    # TODO look into adding player position. Thinking about setting up database for that
     # TODO in box_score_data also consider adding team plus minus for a general idea of how team does
     # TODO add coaches
     # TODO work on cohesion stat
-    # TODO add ability top apply rolling average over multiple seasons. Won't help much for rolling average but will
-    # help for team v team stats as some teams only play twice a year
-    # TODO add column to track how many players from team are on team from game to game. So if 5 players and all 5 play
-    # in next game its 5 if only 3 then 3. If in game after
-    # get_team_stats(['GSW', 'DEN', 'LAC', 'ORL', 'SAS', 'MEM', 'CHI', 'TOR', 'BKN', 'MIA', 'NYK', 'UTA', 'CHA',
-    # 'IND', 'MIL', 'LAL', 'ATL', 'SAC', 'POR', 'DAL', 'CLE', 'BOS', 'WAS', 'DET',
-    # 'PHX', 'MIN', 'NOP', 'HOU', 'PHI', 'OKC'],
-    # pd.read_csv("data/games/" + "2023" + "/schedule.csv", dtype={'GAME_ID': str}))
-    # exit()
-    # @TODO Maybe add in start_position along with stats so we know what position best players play
+    # TODO Maybe add in start_position along with stats so we know what position best players play
     # Get information from user, so we know what seasons to download and/or prepare data for
     # Also asks user if they already have data downloaded, so we can skip download and skip to preparing that data
     years = input("What years would you like to download/prepare? If multiple just type them with a space like \"2020 "
@@ -727,30 +714,6 @@ def main():
 
     # Get data for all years
     get_all_data(years, downloaded_data)
-
-
-def get_team_stats(teams, schedule):
-    """
-
-
-    In the future may change to pull stats against team v team purely instead of relying on prepare_data()
-
-    :param teams:
-    :param schedule:
-    :return:
-    """
-    # Loop through each team
-    for i in range(0, len(teams)):
-        current_team = teams[i]
-        print("\n Start " + current_team)
-
-        # For each team loop through season for all others team adding in team v team stats
-        for versus_team in teams[i + 1:]:
-            # Get games where teams played against each other
-            team_v_team_schedule = schedule.loc[((schedule["MATCHUP"] == current_team + " vs. " + versus_team) |
-                                                 (schedule["MATCHUP"] == versus_team + " vs. " + current_team))]
-            print(team_v_team_schedule)
-            #
 
 
 def get_data_for_model(years):
