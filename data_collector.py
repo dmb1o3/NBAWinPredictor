@@ -7,6 +7,8 @@ import numpy as np
 import pandas as pd
 import league_data as l_data
 import box_score_data as b_data
+import common_team_roster as c_data
+import team_data as t_data
 from threading import Lock
 from concurrent.futures import ThreadPoolExecutor
 from retrying import retry
@@ -83,9 +85,6 @@ def handle_year_input(inputs):
     return years
 
 
-
-
-
 def folder_setup():
     """
     Makes sure that folders used in program are set up
@@ -122,7 +121,7 @@ def clean_player_stats(player_stats):
     # Can drop number of field goals and free throws made as we keep percentage made and amount attempted
     # Can drop total rebounds as we keep offensive rebounds and defensive rebounds
     player_stats.drop(columns=['TEAM_ID', 'TEAM_ABBREVIATION', 'TEAM_CITY',
-                               'NICKNAME', 'START_POSITION', "COMMENT", 'FGM', 'FG3M', 'FTM', 'REB'], inplace=True)
+                               'NICKNAME', "COMMENT", 'FGM', 'FG3M', 'FTM', 'REB'], inplace=True)
 
     return player_stats
 
@@ -387,7 +386,7 @@ def prepare_data(schedule, year):
     team_schedule = {}  # Used to store schedule dataframe for individual teams
 
     # Set up column names so that we can more easily add averaged data later on
-    stats = ["PLAYER_ID", "MIN", "FGA", "FG_PCT", "FG3A", "FG3_PCT", "FTA", "FT_PCT", "OREB", "DREB", "AST", "STL",
+    stats = ["PLAYER_ID", "STARTED", "MIN", "FGA", "FG_PCT", "FG3A", "FG3_PCT", "FTA", "FT_PCT", "OREB", "DREB", "AST", "STL",
              "BLK", "TO", "PF", "PTS", "PLUS_MINUS"]
     column_prefix = "PLAYER_"
     home_column_names = make_column_names("HOME_" + column_prefix, stats)
@@ -416,6 +415,8 @@ def prepare_data(schedule, year):
     # The reason this cannot be done in the same loop above is that we need to wait until all teams have run so a
     # player's stats are for the whole season
     for team in teams:
+        # Finished team
+        print("Preparing data for " + team)
         # Get the averaged dataframes for all players who played on the team in season
         team_dataframes[team] = get_averaged_player_stats(team_dataframes[team], year, team)
         # Right now we just set to 0 but for some teams since not start of season will be on win streak
@@ -508,8 +509,13 @@ def get_game_data(game_id, year):
     :return: Data frame containing the team id, team abbreviation, player id, player name and minutes for
              given game
     """
-    box_score_data = b_data.BoxScoreTraditionalV2(game_id=game_id)
-    box_score_data = box_score_data.get_data_frames()[0]  # [["TEAM_ABBREVIATION", "PLAYER_ID", "PLAYER_NAME", "MIN"]]
+    b_score_data = b_data.BoxScoreTraditionalV2(game_id=game_id)
+    box_score_data = b_score_data.get_data_frames()[0]  # [["TEAM_ABBREVIATION", "PLAYER_ID", "PLAYER_NAME", "MIN"]]
+
+    # Player has start positon i.e "C, F" and "" if not. This changes it to a binary if they started or not
+    box_score_data["START_POSITION"] = box_score_data["START_POSITION"].apply(lambda x: 1 if x != '' else 0)
+    box_score_data.rename(columns={'START_POSITION': 'STARTED'}, inplace=True)
+
     # Minutes are stored with seconds. 35 minutes 30 seconds is 35.0000:30
 
     if int(year) > 1995:
@@ -660,7 +666,38 @@ def get_all_data(years, data_is_downloaded):
         #
 
 
+def get_position(season, team_id):
+    """ Can get postion this way may be more efficent way just saved this for now so easy to remeber if I to use later"""
+    b = c_data.CommonTeamRoster(season=season, team_id=team_id)
+    c = b.get_data_frames()[0]
+
+
+def get_coach(season, team_id):
+    """
+    Given a season and a team id will return the most recent coach for that season. 
+    :param season:
+    :param team_id:
+    :return:
+    """
+
+    b = c_data.CommonTeamRoster(season=season, team_id=team_id)
+    staff = b.get_data_frames()[1]
+    return staff.loc[staff["COACH_TYPE"] == "Head Coach"]["COACH_ID"]
+
+
 def main():
+    """    b_score_data = b_data.BoxScoreTraditionalV2(game_id="0022300014")
+    box_score_data = b_score_data.get_data_frames()[0]
+    box_score_data = box_score_data.fillna(0)
+    box_score_data.rename(columns={'START_POSITION': 'STARTED'}, inplace=True)
+    print(box_score_data.to_string())
+    print(get_coach("2023", "1610612749"))
+    exit()"""
+    # TODO look into adding player position
+    # TODO in box_score_data look at use starter bench and converting it to an average
+    # TODO in box_score_data also consider adding team plus minus for a general idea of how team does
+    # TODO add coaches
+    # TODO work on cohesion stat
     # TODO add ability top apply rolling average over multiple seasons. Won't help much for rolling average but will
     # help for team v team stats as some teams only play twice a year
     # TODO add column to track how many players from team are on team from game to game. So if 5 players and all 5 play

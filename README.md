@@ -94,6 +94,26 @@ Parameters: {'criterion': 'friedman_mse', 'learning_rate': 0.3, 'loss': 'exponen
 Done using data from 2020 - 2023, 5 players per team, 5 games back, 2 game buffer 
 ```
 
+#### 6. SVC
+```
+SVC
+Best parameters: {'coef0': 0.2, 'degree': 4, 'gamma': 'auto', 'kernel': 'poly', 'shrinking': True}
+Best cross-validation score: 0.61
+Accuracy: 0.62
+Testing data Classification Report
+                precision    recall  f1-score   support
+
+Home Team Lost       0.57      0.63      0.60       390
+ Home Team Won       0.67      0.61      0.64       477
+
+      accuracy                           0.62       867
+     macro avg       0.62      0.62      0.62       867
+  weighted avg       0.62      0.62      0.62       867
+
+Done using data from ['2020', '2021', '2022', '2023'], with Randomly Split Data, 
+with Balanced Classes by Under Sampling Majority, with Scaled Data
+
+```
 
 ### league_data.py
 [Link to repo where the file was taken](https://github.com/swar/nba_api/blob/master/docs/nba_api/stats/endpoints/leaguegamelog.md)
