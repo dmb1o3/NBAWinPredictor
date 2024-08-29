@@ -5,13 +5,11 @@ import shutil
 import time
 import numpy as np
 import pandas as pd
-import league_data as l_data
-import box_score_data as b_data
-import common_team_roster as c_data
-import team_data as t_data
 from threading import Lock
 from concurrent.futures import ThreadPoolExecutor
 from retrying import retry
+from API import box_score_data as b_data, league_data as l_data, common_team_roster as c_data
+
 
 # Global Variables
 NUM_THREADS = 4  # Used to know how many threads to use when downloading individual data for games
@@ -664,7 +662,10 @@ def get_all_data(years, data_is_downloaded):
 
 
 def get_position(season, team_id):
-    """ Can get postion this way may be more efficent way just saved this for now so easy to remeber if I to use later"""
+    """
+    Can get postion this way may be more efficent way just saved this for now so easy to remeber if I to use later
+
+    """
     b = c_data.CommonTeamRoster(season=season, team_id=team_id)
     c = b.get_data_frames()[0]
 
@@ -683,18 +684,22 @@ def get_coach(season, team_id):
 
 
 def main():
-    """    b_score_data = b_data.BoxScoreTraditionalV2(game_id="0022300014")
+    """
+    b_score_data = b_data.BoxScoreTraditionalV2(game_id="0022300014")
     box_score_data = b_score_data.get_data_frames()[0]
     box_score_data = box_score_data.fillna(0)
     box_score_data.rename(columns={'START_POSITION': 'STARTED'}, inplace=True)
     print(box_score_data.to_string())
     print(get_coach("2023", "1610612749"))
-    exit()"""
+    exit()
+    """
     # TODO look into adding player position. Thinking about setting up database for that
     # TODO in box_score_data also consider adding team plus minus for a general idea of how team does
     # TODO add coaches
     # TODO work on cohesion stat
     # TODO Maybe add in start_position along with stats so we know what position best players play
+    # TODO Add offensive and defensive efficiency for teams
+    # TODO Add per 100 stats
     # Get information from user, so we know what seasons to download and/or prepare data for
     # Also asks user if they already have data downloaded, so we can skip download and skip to preparing that data
     years = input("What years would you like to download/prepare? If multiple just type them with a space like \"2020 "
