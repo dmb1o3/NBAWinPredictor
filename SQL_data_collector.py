@@ -1,6 +1,6 @@
 from retrying import retry
-from API import box_score_data as b_data, league_data as l_data, common_team_roster as c_data
-import db_manager as db
+from API import league_data as l_data
+from SQL import db_manager as db
 import pandas as pd
 import numpy as np
 
@@ -70,15 +70,13 @@ def get_league_schedule(year):
     """
 
     """
+    stats = ["GAME_ID", "MATCHUP", "MIN", "FGM", "FGA", "FG_PCT", "FG3M", "FG3A", "FG3_PCT", "FTM", "FTA", "FT_PCT",
+             "OREB", "DREB","REB", "AST", "STL", "BLK", "TOV", "PF", "PTS", "PLUS_MINUS"]
     league_data = l_data.LeagueGameLog(season=year)
-    league_data = league_data.get_data_frames()[0][["GAME_ID", "GAME_DATE", "MATCHUP", "TEAM_ID", "WL"]]
-    # Add column for the home team
-    league_data["HOME_TEAM"] = league_data["MATCHUP"].str[:3]
-    # Rename TEAM_ID to HOME_TEAM_ID for more accurate name
-    league_data = league_data.rename(columns={})
+    league_data = league_data.get_data_frames()[0]
     # Add OPP_TEAM_ID
-    df_at = league_data[league_data['MATCHUP'].str.contains('@')][['GAME_ID', 'TEAM_ID']].rename(
-        columns={'TEAM_ID': 'OPP_TEAM_ID'})
+    df_at = league_data[league_data['MATCHUP'].str.contains('@')][['GAME_ID', 'TEAM_ID', 'TEAM_ABBREVIATION', 'TEAM_NAME']].rename(
+        columns={'TEAM_ID': 'OPP_TEAM_ID', 'TEAM_ABBREVIATION': 'OPP_TEAM_ABBREVIATION', 'TEAM_NAME': 'OPP_TEAM_NAME' })
     # Merge DataFrames on 'GAME_ID'
     league_data = pd.merge(league_data, df_at, on='GAME_ID', how='left')
 
@@ -86,18 +84,26 @@ def get_league_schedule(year):
     league_data["WL"] = np.where(league_data["WL"] == "W", league_data["MATCHUP"].str.slice(start=0, stop=3),
                                  league_data["MATCHUP"].str.slice(start=-3))
     # Rename column to make it easier to understand
-    league_data = league_data.rename(columns={"WL": "WINNER", "TEAM_ID": "HOME_TEAM_ID"})
+    league_data = league_data.rename(columns={"WL": "WINNER", "TEAM_ID": "HOME_TEAM_ID", "TEAM_NAME": "HOME_TEAM_NAME",
+                                              "TEAM_ABBREVIATION": "HOME_TEAM_ABBREVIATION"})
 
-    league_data["HOME_TEAM_WON"] = (league_data['HOME_TEAM'] == league_data['WINNER']).astype(int)
+    team_data = league_data[stats]
+    team_data.loc[:, "MATCHUP"] = team_data["MATCHUP"].str.slice(start=0, stop=3)
+    team_data = team_data.rename(columns={"MATCHUP": "TEAM"})
+
     # Data set contains two instances for a single game, one for the home team and one for the away team
     # here we only take matchups with vs. instead of @ meaning we take all home team copies game
     league_data = league_data[league_data["MATCHUP"].str.contains("vs.", na=False)]
+    league_data["GAME_DATE"] = pd.to_datetime(league_data["GAME_DATE"])
+    league_data.drop(stats[2:], axis=1, inplace=True)
+
     # Change order so it's more readable for humans
-    desired_order = ['GAME_ID', 'GAME_DATE', 'MATCHUP', 'HOME_TEAM_ID', 'OPP_TEAM_ID', 'HOME_TEAM', 'WINNER',
-                     'HOME_TEAM_WON']
+    desired_order = ["SEASON_ID", "GAME_ID", "GAME_DATE", "MATCHUP", "HOME_TEAM_NAME", "HOME_TEAM_ABBREVIATION",
+                     "HOME_TEAM_ID", "OPP_TEAM_NAME", "OPP_TEAM_ABBREVIATION", "OPP_TEAM_ID", "WINNER","VIDEO_AVAILABLE"]
     league_data = league_data.reindex(columns=desired_order)
-    print("League schedule for " + year + " has been saved")
-    return league_data
+
+    # Save Data
+    return league_data, team_data
 
 
 def main():
@@ -107,8 +113,13 @@ def main():
                   "2021 2022\" ")
     years = handle_year_input(years)
     for year in years:
-        schedule = get_league_schedule(year)
-        db.upload_df_to_postgres(schedule)
+        # Download schedule from NBA API
+        schedule, team_data = get_league_schedule(year)
+        # Upload schedule and team data for season to database
+        db.upload_df_to_postgres(schedule, "schedule")
+        db.upload_df_to_postgres(team_data, "team_stats")
+        print("League schedule for " + year + " has been saved")
+        # Use schedule to get games
 
 
 

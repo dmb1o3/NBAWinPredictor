@@ -1,6 +1,8 @@
 from psycopg2 import connect
 import pandas as pd
-from config import config_params, conn_string
+
+from SQL.config import team_stats_table, config_params, conn_string, schedule_table
+
 from sqlalchemy import create_engine
 
 
@@ -28,16 +30,17 @@ def connect_to_server(autocommit):
         print(f"Error connecting to Postgres SQL server: {e}")
 
 
-def upload_df_to_postgres(df):
+def upload_df_to_postgres(df, table_name):
     db = create_engine(conn_string)
     conn = db.connect()
 
     try:
-        df.to_sql("schedule", con=conn, if_exists="append", index=False)
+        df.to_sql(table_name, con=conn, if_exists="append", index=False)
         print("Dataframe uploaded successfully.")
-
     except Exception as e:
         print(f"Error uploading DataFrame: {e}")
+    finally:
+        conn.close()
 
 
 
@@ -63,22 +66,11 @@ def upload_csv_to_postgres(csv_file_path):
         close_cursor_conn(cursor, conn)
 
 
-def create_table(table_name):
+def create_table(table_schema, table_name):
     conn = connect_to_server(True)
     cursor = conn.cursor()
     try:
-        cursor.execute("""
-        CREATE TABLE schedule (
-            "GAME_ID" char(10) PRIMARY KEY,
-            "GAME_DATE" date,
-            "MATCHUP" char(11),
-            "HOME_TEAM_ID" char(10),
-            "OPP_TEAM_ID" char(10),
-            "HOME_TEAM" char(3),
-            "WINNER" char(3),
-            "HOME_TEAM_WON" int
-        );
-        """)
+        cursor.execute(table_schema)
         print(f"Successfully created table {table_name}")
 
     except Exception as e:
@@ -102,5 +94,6 @@ def create_database(dbname):
 
 
 if __name__ == "__main__":
-    create_table("schedule")
-    upload_csv_to_postgres(r"C:\Users\mrjoy\PycharmProjects\NBAWinPredictor\data\games\2023\schedule.csv")
+    create_table(team_stats_table, "team_stats")
+    create_table(schedule_table, "schedule")
+   # upload_csv_to_postgres(r"C:\Users\mrjoy\PycharmProjects\NBAWinPredictor\data\games\2022\schedule.csv")
