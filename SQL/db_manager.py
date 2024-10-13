@@ -1,11 +1,7 @@
 from psycopg2 import connect
 import pandas as pd
-
 from SQL.config import team_stats_table, config_params, conn_string, schedule_table
-
 from sqlalchemy import create_engine
-
-
 import psycopg2
 
 def close_cursor_conn(cursor, conn):
@@ -36,7 +32,7 @@ def upload_df_to_postgres(df, table_name):
 
     try:
         df.to_sql(table_name, con=conn, if_exists="append", index=False)
-        print("Dataframe uploaded successfully.")
+        print(f"Dataframe uploaded successfully to {table_name} table")
     except Exception as e:
         print(f"Error uploading DataFrame: {e}")
     finally:

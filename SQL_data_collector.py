@@ -118,7 +118,6 @@ def main():
         # Upload schedule and team data for season to database
         db.upload_df_to_postgres(schedule, "schedule")
         db.upload_df_to_postgres(team_data, "team_stats")
-        print("League schedule for " + year + " has been saved")
         # Use schedule to get games
 
 
