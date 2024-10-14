@@ -26,6 +26,18 @@ def connect_to_server(autocommit):
         print(f"Error connecting to Postgres SQL server: {e}")
 
 
+def quite_upload_df_to_postgres(df, table_name):
+    db = create_engine(conn_string)
+    conn = db.connect()
+
+    try:
+        df.to_sql(table_name, con=conn, if_exists="append", index=False)
+    except Exception as e:
+        print(f"Error uploading DataFrame: {e}")
+    finally:
+        conn.close()
+
+
 def upload_df_to_postgres(df, table_name):
     db = create_engine(conn_string)
     conn = db.connect()

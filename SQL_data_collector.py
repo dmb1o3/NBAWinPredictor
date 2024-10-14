@@ -1,12 +1,18 @@
+import time
+from concurrent.futures.thread import ThreadPoolExecutor
+
 from retrying import retry
 from API import league_data as l_data, box_score_data as b_data
 from SQL import db_manager as db
+from threading import Lock
 import pandas as pd
 import numpy as np
 
 
+NUM_THREADS = 2  # Used to know how many threads to use when downloading individual data for games
 MAX_DOWNLOAD_ATTEMPTS = 4  # Set to -1 for infinite. Controls number of times to try to download from NBA api
-
+GAME_LOCK = Lock()  # Used to sync threads for saving data to gameProcessed
+GAME_PROCESSED = set()  # Saves data about game_ids we processed so threads don't do redundant work
 
 
 def dash_to_individual(years):
@@ -66,7 +72,7 @@ def handle_year_input(inputs):
 
 
 @retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS)
-def get_game_data(game_id, year):
+def threaded_get_save_game_data(game_id, year):
     """
     Given a game id will return a dataframe containing data on what teams played, what players played and how many
     minutes. Specifically will save the team abbreviation, player id, player name and minutes. Minutes do
@@ -79,15 +85,28 @@ def get_game_data(game_id, year):
     :return: Data frame containing the team id, team abbreviation, player id, player name and minutes for
              given game
     """
-    b_score_data = b_data.BoxScoreTraditionalV2(game_id=game_id)
-    box_score_data = b_score_data.get_data_frames()[0]
+    try:
+        with GAME_LOCK:
+            if game_id in GAME_PROCESSED:
+                return
+            GAME_PROCESSED.add(game_id)
 
-    # Minutes are stored with seconds. 35 minutes 30 seconds is 35.0000:30
+        b_score_data = b_data.BoxScoreTraditionalV2(game_id=game_id)
+        game_data = b_score_data.get_data_frames()[0]
 
-    if int(year) > 1995:
-        box_score_data["MIN"] = box_score_data["MIN"].str.split(".").str[0]
-        box_score_data = box_score_data.fillna(0)  # Data uses none instead of 0
-    return box_score_data
+        # Minutes are stored with seconds. 35 minutes 30 seconds is 35.0000:30
+        if int(year) > 1995:
+            game_data["MIN"] = game_data["MIN"].str.split(".").str[0]
+            game_data = game_data.fillna(0)  # Data uses none instead of 0
+
+        game_data = game_data.rename(columns={"TO": "TOV"})
+        # Upload game stat to database
+        db.upload_df_to_postgres(game_data, "game_stats")
+        return game_data
+    except Exception as e:
+        print(str(e) + " for " + str(game_id))
+
+
 
 
 @retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS)
@@ -140,21 +159,20 @@ def main():
     for year in years:
         # Download schedule from NBA API
         schedule, team_data = get_league_schedule_team_stats(year)
+
         # Upload schedule and team data for season to database
         db.upload_df_to_postgres(schedule, "schedule")
         db.upload_df_to_postgres(team_data, "team_stats")
+
         # Use schedule to get games
         game_ids = list(schedule["GAME_ID"])
-        # Upload game data
-        for game_id in game_ids:
-            game_data = get_game_data(game_id, year)
-            # Keeping naming of turnover consistent between game stats and team stats
-            # For some reason they differ
-            game_data = game_data.rename(columns={"TO": "TOV"})
-            game_data.to_csv("example.csv", index=False)
-            # Upload game stat to database
-            db.upload_df_to_postgres(game_data, "game_stats")
 
+        # Download data for each game and save it to database
+        print("Starting download of games for " + year)
+        start_time = time.time()
+        with ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
+            executor.map(lambda game_id:threaded_get_save_game_data(game_id, year), game_ids)
+        print("Finished took " + str((time.time() - start_time) / 60) + " minutes")
 
 
 if __name__ == "__main__":
