@@ -1,5 +1,5 @@
 from retrying import retry
-from API import league_data as l_data
+from API import league_data as l_data, box_score_data as b_data
 from SQL import db_manager as db
 import pandas as pd
 import numpy as np
@@ -66,7 +66,32 @@ def handle_year_input(inputs):
 
 
 @retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS)
-def get_league_schedule(year):
+def get_game_data(game_id, year):
+    """
+    Given a game id will return a dataframe containing data on what teams played, what players played and how many
+    minutes. Specifically will save the team abbreviation, player id, player name and minutes. Minutes do
+    require some cleaning as when given from the NBA api 0 minutes shows up as None and minutes are formatted oddly
+    with seconds. What I assume is 31 minutes and 35 seconds shows up as 31.0000:35. Cleaning fills all nones with 0
+    and splits minutes by periods keeping only the first part. Turning 31.0000:35 into 31 meaning we DO NOT round
+
+    :param game_id: String with id of game we want data for. Ids are from the NBA api
+    :param year:
+    :return: Data frame containing the team id, team abbreviation, player id, player name and minutes for
+             given game
+    """
+    b_score_data = b_data.BoxScoreTraditionalV2(game_id=game_id)
+    box_score_data = b_score_data.get_data_frames()[0]
+
+    # Minutes are stored with seconds. 35 minutes 30 seconds is 35.0000:30
+
+    if int(year) > 1995:
+        box_score_data["MIN"] = box_score_data["MIN"].str.split(".").str[0]
+        box_score_data = box_score_data.fillna(0)  # Data uses none instead of 0
+    return box_score_data
+
+
+@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS)
+def get_league_schedule_team_stats(year):
     """
 
     """
@@ -114,12 +139,21 @@ def main():
     years = handle_year_input(years)
     for year in years:
         # Download schedule from NBA API
-        schedule, team_data = get_league_schedule(year)
+        schedule, team_data = get_league_schedule_team_stats(year)
         # Upload schedule and team data for season to database
         db.upload_df_to_postgres(schedule, "schedule")
         db.upload_df_to_postgres(team_data, "team_stats")
         # Use schedule to get games
-
+        game_ids = list(schedule["GAME_ID"])
+        # Upload game data
+        for game_id in game_ids:
+            game_data = get_game_data(game_id, year)
+            # Keeping naming of turnover consistent between game stats and team stats
+            # For some reason they differ
+            game_data = game_data.rename(columns={"TO": "TOV"})
+            game_data.to_csv("example.csv", index=False)
+            # Upload game stat to database
+            db.upload_df_to_postgres(game_data, "game_stats")
 
 
 

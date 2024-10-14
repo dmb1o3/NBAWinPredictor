@@ -1,6 +1,6 @@
 from psycopg2 import connect
 import pandas as pd
-from SQL.config import team_stats_table, config_params, conn_string, schedule_table
+from SQL.config import team_stats_table, game_stats_table, config_params, conn_string, schedule_table
 from sqlalchemy import create_engine
 import psycopg2
 
@@ -90,6 +90,10 @@ def create_database(dbname):
 
 
 if __name__ == "__main__":
-    create_table(team_stats_table, "team_stats")
     create_table(schedule_table, "schedule")
+    create_table(team_stats_table, "team_stats")
+    create_table(game_stats_table, "game_stats")
+
+
+
    # upload_csv_to_postgres(r"C:\Users\mrjoy\PycharmProjects\NBAWinPredictor\data\games\2022\schedule.csv")
