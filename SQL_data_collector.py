@@ -1,16 +1,18 @@
-import time
-from concurrent.futures.thread import ThreadPoolExecutor
-
-from retrying import retry
 from API import league_data as l_data, box_score_data as b_data
+from concurrent.futures.thread import ThreadPoolExecutor
 from SQL import db_manager as db
+from retrying import retry
 from threading import Lock
 import pandas as pd
 import numpy as np
+import time
 
+from SQL.db_manager import run_sql_query
 
-NUM_THREADS = 2  # Used to know how many threads to use when downloading individual data for games
-MAX_DOWNLOAD_ATTEMPTS = 4  # Set to -1 for infinite. Controls number of times to try to download from NBA api
+# @TODO Make a function to get player stats within a time frame. Maybe
+
+NUM_THREADS = 4  # Used to know how many threads to use when downloading individual data for games
+MAX_DOWNLOAD_ATTEMPTS = -1  # Set to -1 for infinite. Controls number of times to try to download from NBA api
 GAME_LOCK = Lock()  # Used to sync threads for saving data to gameProcessed
 GAME_PROCESSED = set()  # Saves data about game_ids we processed so threads don't do redundant work
 
@@ -150,30 +152,76 @@ def get_league_schedule_team_stats(year):
     return league_data, team_data
 
 
-def main():
-    # Get information from user, so we know what seasons to download and/or prepare data for
-    # Also asks user if they already have data downloaded, so we can skip download and skip to preparing that data
-    years = input("What years would you like to download/prepare? If multiple just type them with a space like \"2020 "
-                  "2021 2022\" ")
-    years = handle_year_input(years)
+def check_for_all_game_stats():
+    # Query for all game_ids
+    query = """
+    SELECT "GAME_ID", "SEASON_ID"
+    FROM schedule s
+    WHERE NOT EXISTS (
+        SELECT 1 
+        FROM game_stats gs
+        WHERE s."GAME_ID" = gs."GAME_ID"
+    );
+
+    """
+    games_no_game_stats = run_sql_query(query)
+    print("\nMissing game stats for " + str(len(games_no_game_stats)) + " games")
+    for game in games_no_game_stats:
+        threaded_get_save_game_data(game[0], game[1])
+
+
+def get_save_data_for_year(year):
+    # Download schedule from NBA API
+    schedule, team_data = get_league_schedule_team_stats(year)
+
+    # Upload schedule and team data for season to database
+    db.upload_df_to_postgres(schedule, "schedule")
+    db.upload_df_to_postgres(team_data, "team_stats")
+
+    # Use schedule to get games
+    game_ids = list(schedule["GAME_ID"])
+
+    # Download data for each game and save it to database
+    print("Starting download of games for " + year)
+    start_time = time.time()
+    with ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
+        executor.map(lambda game_id:threaded_get_save_game_data(game_id, year), game_ids)
+    print("Finished took " + str((time.time() - start_time) / 60) + " minutes\n ")
+
+
+def set_up_year_function():
+    year_input = input("\nWhat year(s) would you like to download data for? If multiple can use - or , i.e 2022, 2023 or "
+                       "2022-2023: ")
+    years = handle_year_input(year_input)
     for year in years:
-        # Download schedule from NBA API
-        schedule, team_data = get_league_schedule_team_stats(year)
+        get_save_data_for_year(year)
 
-        # Upload schedule and team data for season to database
-        db.upload_df_to_postgres(schedule, "schedule")
-        db.upload_df_to_postgres(team_data, "team_stats")
+def invalid_option(options_length):
+    print("\nInvalid option must be a number from 1 - " + str(options_length - 1) + " or q/Q to exit\n")
 
-        # Use schedule to get games
-        game_ids = list(schedule["GAME_ID"])
 
-        # Download data for each game and save it to database
-        print("Starting download of games for " + year)
-        start_time = time.time()
-        with ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
-            executor.map(lambda game_id:threaded_get_save_game_data(game_id, year), game_ids)
-        print("Finished took " + str((time.time() - start_time) / 60) + " minutes")
+def menu_options():
+    options = {
+        '1': set_up_year_function,
+        '2': check_for_all_game_stats,
+        'q': exit,
+    }
+
+    while True:
+        # Print out options
+        print("1. Download data for a entire year")
+        print("2. Check a downloaded schedule to make sure all games are downloaded for that year")
+
+        # Get users choice and lowercase it to make q/Q the same
+        user_selection = input("Enter number associated with choice (Enter q to exit): ")
+        user_selection = user_selection.lower()
+
+        # Call menu option if valid if not let user know how to properly use menu
+        if user_selection in options:
+            options[user_selection]()
+        else:
+            invalid_option(len(options))
 
 
 if __name__ == "__main__":
-    main()
+    menu_options()

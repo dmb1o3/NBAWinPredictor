@@ -27,7 +27,7 @@ def connect_to_server(autocommit):
 
 
 def quite_upload_df_to_postgres(df, table_name):
-    db = create_engine(conn_string)
+    db = psycopg2.connect(**config_params)
     conn = db.connect()
 
     try:
@@ -36,6 +36,15 @@ def quite_upload_df_to_postgres(df, table_name):
         print(f"Error uploading DataFrame: {e}")
     finally:
         conn.close()
+
+
+def run_sql_query(query):
+    conn = connect_to_server(False)
+    cursor = conn.cursor()
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    close_cursor_conn(cursor, conn)
+    return rows
 
 
 def upload_df_to_postgres(df, table_name):
@@ -49,9 +58,6 @@ def upload_df_to_postgres(df, table_name):
         print(f"Error uploading DataFrame: {e}")
     finally:
         conn.close()
-
-
-
 
 
 
