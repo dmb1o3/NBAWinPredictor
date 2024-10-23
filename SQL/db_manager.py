@@ -38,6 +38,21 @@ def quite_upload_df_to_postgres(df, table_name):
         conn.close()
 
 
+def run_sql_query_params(query, params):
+    """
+
+    query: Query with named parameters ex. "WHERE gs."PLAYER_NAME" = %(player_name)s"
+    params: Dictionary of params for query ex. {"PLAYER_NAME": "Shaquille O'Neal"}
+    returns: Rows that are true for query
+    """
+    conn = connect_to_server(False)
+    cursor = conn.cursor()
+    cursor.execute(query, params)
+    rows = cursor.fetchall()
+    close_cursor_conn(cursor, conn)
+    return rows
+
+
 def run_sql_query(query):
     conn = connect_to_server(False)
     cursor = conn.cursor()

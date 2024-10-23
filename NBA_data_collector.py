@@ -1,20 +1,20 @@
 from API import league_data as l_data, box_score_data as b_data
 from concurrent.futures.thread import ThreadPoolExecutor
-from SQL import db_manager as db
-from retrying import retry
+from SQL import db_manager as db, SQL_data_collector as dc
 from threading import Lock
+from retrying import retry
 import pandas as pd
 import numpy as np
 import time
 
-from SQL.db_manager import run_sql_query
 
-# @TODO Make a function to get player stats within a time frame. Maybe
-
-NUM_THREADS = 4  # Used to know how many threads to use when downloading individual data for games
-MAX_DOWNLOAD_ATTEMPTS = -1  # Set to -1 for infinite. Controls number of times to try to download from NBA api
-GAME_LOCK = Lock()  # Used to sync threads for saving data to gameProcessed
-GAME_PROCESSED = set()  # Saves data about game_ids we processed so threads don't do redundant work
+# How many threads to use when downloading individual game data from NBA API
+NUM_THREADS = 2
+# Max amount of times to retry download as sometimes they can timeout
+MAX_DOWNLOAD_ATTEMPTS = 10
+# Used to prevent duplicate request of data from NBA API
+GAME_LOCK = Lock()
+GAME_PROCESSED = set()
 
 
 def dash_to_individual(years):
@@ -109,8 +109,6 @@ def threaded_get_save_game_data(game_id, year):
         print(str(e) + " for " + str(game_id))
 
 
-
-
 @retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS)
 def get_league_schedule_team_stats(year):
     """
@@ -152,22 +150,27 @@ def get_league_schedule_team_stats(year):
     return league_data, team_data
 
 
-def check_for_all_game_stats():
-    # Query for all game_ids
-    query = """
-    SELECT "GAME_ID", "SEASON_ID"
-    FROM schedule s
-    WHERE NOT EXISTS (
-        SELECT 1 
-        FROM game_stats gs
-        WHERE s."GAME_ID" = gs."GAME_ID"
-    );
-
+def check_save_missing_game_stats():
     """
-    games_no_game_stats = run_sql_query(query)
+    Will check schedule and game_stats tables for GAME_IDs. Any missing GAME_IDs in game_stats will be downloaded then
+    saved to server.
+
+    Since schedule is once API request it either is uploaded to server or not. Each games stat is a single API request.
+    Sometimes server times out and games are not downloaded. Until we have a way to 100% guarantee that games get
+    downloaded we can use this to download missing game stats
+
+    :return: Nothing
+    """
+    games_no_game_stats = dc.get_missing_game_data()
     print("\nMissing game stats for " + str(len(games_no_game_stats)) + " games")
-    for game in games_no_game_stats:
-        threaded_get_save_game_data(game[0], game[1])
+    # Reset games processed for multiple runs without reset
+    # Hopefully doesn't happen but possible that it timeouts during redownload and user needs to run command again
+    # They may not reset program so we can just wipe the variable
+    global GAME_PROCESSED
+    GAME_PROCESSED = set()
+
+    with ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
+        executor.map(lambda game:threaded_get_save_game_data(game[0], game[1]), games_no_game_stats)
 
 
 def get_save_data_for_year(year):
@@ -196,6 +199,7 @@ def set_up_year_function():
     for year in years:
         get_save_data_for_year(year)
 
+
 def invalid_option(options_length):
     print("\nInvalid option must be a number from 1 - " + str(options_length - 1) + " or q/Q to exit\n")
 
@@ -203,7 +207,7 @@ def invalid_option(options_length):
 def menu_options():
     options = {
         '1': set_up_year_function,
-        '2': check_for_all_game_stats,
+        '2': check_save_missing_game_stats,
         'q': exit,
     }
 
