@@ -1,7 +1,3 @@
-from certifi import where
-from numpy.lib.function_base import select
-from sqlalchemy import false
-
 from SQL import db_manager as db
 
 def get_missing_game_data():
@@ -49,6 +45,29 @@ def select_builder(column_names):
 
     return select_str
 
+def get_team_in_year(year):
+    query = f"""
+    SELECT DISTINCT "HOME_TEAM_ABBREVIATION"
+    FROM schedule
+    WHERE RIGHT(schedule."SEASON_ID", 4) = '{year}'
+    """
+
+    return db.run_sql_query(query)
+
+
+
+
+def get_team_stats_by_year(year, team_abbrev):
+    query = f"""
+    SELECT team_stats.*
+    FROM team_stats
+    join schedule on schedule."GAME_ID" = team_stats."GAME_ID"
+    WHERE RIGHT(schedule."SEASON_ID", 4) = '{year}'
+    AND team_stats."TEAM" = '{team_abbrev}'
+    ORDER BY "GAME_DATE" ASC
+    """
+
+    return db.run_sql_query(query)
 
 
 def get_data_from_table(return_column_names, table_name, col_conditions):

@@ -9,7 +9,7 @@ import time
 
 
 # How many threads to use when downloading individual game data from NBA API
-NUM_THREADS = 2
+NUM_THREADS = 4
 # Max amount of times to retry download as sometimes they can timeout
 MAX_DOWNLOAD_ATTEMPTS = 10
 # Used to prevent duplicate request of data from NBA API
@@ -162,7 +162,7 @@ def check_save_missing_game_stats():
     :return: Nothing
     """
     games_no_game_stats = dc.get_missing_game_data()
-    print("\nMissing game stats for " + str(len(games_no_game_stats)) + " games")
+    print("\nMissing game stats for " + str(len(games_no_game_stats)) + " games\n")
     # Reset games processed for multiple runs without reset
     # Hopefully doesn't happen but possible that it timeouts during redownload and user needs to run command again
     # They may not reset program so we can just wipe the variable
@@ -213,8 +213,9 @@ def menu_options():
 
     while True:
         # Print out options
-        print("1. Download data for a entire year")
-        print("2. Check a downloaded schedule to make sure all games are downloaded for that year")
+        print("1. Download data for an entire year")
+        print("2. Check all downloaded schedules to make sure all game stats are downloaded")
+        print("")
 
         # Get users choice and lowercase it to make q/Q the same
         user_selection = input("Enter number associated with choice (Enter q to exit): ")
@@ -225,6 +226,8 @@ def menu_options():
             options[user_selection]()
         else:
             invalid_option(len(options))
+
+
 
 
 if __name__ == "__main__":

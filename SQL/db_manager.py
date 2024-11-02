@@ -1,5 +1,3 @@
-from psycopg2 import connect
-import pandas as pd
 from SQL.config import team_stats_table, game_stats_table, config_params, conn_string, schedule_table
 from sqlalchemy import create_engine
 import psycopg2
@@ -50,7 +48,8 @@ def run_sql_query_params(query, params):
     cursor.execute(query, params)
     rows = cursor.fetchall()
     close_cursor_conn(cursor, conn)
-    return rows
+    columns = [desc[0] for desc in cursor.description]
+    return rows, columns
 
 
 def run_sql_query(query):
@@ -59,7 +58,8 @@ def run_sql_query(query):
     cursor.execute(query)
     rows = cursor.fetchall()
     close_cursor_conn(cursor, conn)
-    return rows
+    columns = [desc[0] for desc in cursor.description]
+    return rows, columns
 
 
 def upload_df_to_postgres(df, table_name):
