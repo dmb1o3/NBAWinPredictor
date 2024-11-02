@@ -132,13 +132,13 @@ This program has been tested to run on python 3.9. I would recommend using conda
 2. conda activate envName
 
 
-## Microsoft C++ Build Tools
+### Microsoft C++ Build Tools
 [Link to download Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
 1. Download and run
 2. Click on Desktop development with C++
 3. Click install
 
-### Requirements and Running Program
+## Running Program
 1. Download repository
 2. Have a running Postgres server
 3. Enter password into SQL/config.py
