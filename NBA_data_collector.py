@@ -103,7 +103,7 @@ def threaded_get_save_game_data(game_id, year):
 
         game_data = game_data.rename(columns={"TO": "TOV"})
         # Upload game stat to database
-        db.upload_df_to_postgres(game_data, "game_stats")
+        db.upload_df_to_postgres(game_data, "game_stats", False)
         return game_data
     except Exception as e:
         print(str(e) + " for " + str(game_id))
@@ -178,8 +178,8 @@ def get_save_data_for_year(year):
     schedule, team_data = get_league_schedule_team_stats(year)
 
     # Upload schedule and team data for season to database
-    db.upload_df_to_postgres(schedule, "schedule")
-    db.upload_df_to_postgres(team_data, "team_stats")
+    db.upload_df_to_postgres(schedule, "schedule", True)
+    db.upload_df_to_postgres(team_data, "team_stats", False)
 
     # Use schedule to get games
     game_ids = list(schedule["GAME_ID"])
@@ -228,6 +228,8 @@ def menu_options():
             options[user_selection]()
         else:
             invalid_option(len(options))
+
+        print("")
 
 
 

@@ -63,13 +63,14 @@ def run_sql_query(query):
     return rows, columns
 
 
-def upload_df_to_postgres(df, table_name):
+def upload_df_to_postgres(df, table_name, prnt):
     db = create_engine(conn_string)
     conn = db.connect()
 
     try:
         df.to_sql(table_name, con=conn, if_exists="append", index=False)
-        print(f"Dataframe uploaded successfully to {table_name} table")
+        if prnt:
+            print(f"\nDataframe uploaded successfully to {table_name} table")
     except Exception as e:
         print(f"Error uploading DataFrame: {e}")
     finally:

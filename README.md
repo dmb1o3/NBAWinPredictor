@@ -156,9 +156,10 @@ This program requires python 3.9 or greater. I would recommend using conda to cr
 3. Enter password into SQL/config.py
 4. Install requirements using "pip install -r requirements.txt" 
 5. Run NBA_data_collector.py
-6. Enter in desired seasons
-7. After running can do whatever you would like with data but if you want to test the models go to models.py and change
+6. Run command 3. Setup database
+7. Run command 1 and enter in desired seasons
+8. After running can do whatever you would like with data but if you want to test the models go to models.py and change
    years_to_examine to contain years you have downloaded data for
-8. Run models.py
+9. Run models.py
 
 ## Usage
