@@ -504,9 +504,9 @@ def main():
     print("\nIf you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))
 
     # Run models
-    random_forest(x_train, x_test, y_train, y_test, sfs_settings, settings)
     logistic_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
     ridge_classification(x_train, x_test, y_train, y_test, sfs_settings, settings)
+    random_forest(x_train, x_test, y_train, y_test, sfs_settings, settings)
     gaussian_process_classifier(x_train, x_test, y_train, y_test, sfs_settings, settings)
     knn(x_train, x_test, y_train, y_test, sfs_settings, settings)
     gradient_boosting(x_train, x_test, y_train, y_test, sfs_settings, settings)

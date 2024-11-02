@@ -130,6 +130,12 @@ stats like minutes played, points, rebounds and more for all playes who played f
 
 
 ## Installation
+### Postgres
+This program requires Postgres to be installed
+
+[Link to download Postgres](https://www.postgresql.org/download/)
+
+
 ### Python
 This program requires python 3.9 or greater. I would recommend using conda to create a virtual enviroment
 
@@ -140,9 +146,13 @@ This program requires python 3.9 or greater. I would recommend using conda to cr
 
 ### Requirements and Running Program
 1. Download repository
-2. Install requirements using "pip install -r requirements.txt" 
-3. Run data_collector.py
-4. Enter in desired seasons
-5. After running can do whatever you would like with data but if you want to test the models go to models.py and change
+2. Have a running Postgres server
+3. Enter info into SQL/config.py
+4. Install requirements using "pip install -r requirements.txt" 
+5. Run data_collector.py
+6. Enter in desired seasons
+7. After running can do whatever you would like with data but if you want to test the models go to models.py and change
    years_to_examine to contain years you have downloaded data for
-6. Run models.py
+8. Run models.py
+
+## Usage
