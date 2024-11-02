@@ -1,4 +1,5 @@
-from SQL.config import team_stats_table, game_stats_table, config_params, conn_string, schedule_table
+from SQL.config import team_stats_table, game_stats_table, config_params, config_params_no_db, conn_string, \
+    schedule_table, config_params_no_db
 from sqlalchemy import create_engine
 import psycopg2
 
@@ -109,8 +110,15 @@ def create_table(table_schema, table_name):
 
 
 def create_database(dbname):
-    conn = connect_to_server(True)
-    cursor = conn.cursor()
+    try:
+        conn = psycopg2.connect(**config_params_no_db) # ** Unpacks dict {"a":1, "b":2} => connect(a=1, b=2)
+        # Need autocommit on for certain commands to work like database creation
+        conn.autocommit = True
+        cursor = conn.cursor()
+
+    except Exception as e:
+        print(f"Error connecting to Postgres SQL server: {e}")
+
     try:
         cursor.execute(f"CREATE DATABASE {dbname};")
         print(f"Successfully created database {dbname}")

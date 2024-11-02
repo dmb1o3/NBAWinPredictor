@@ -1,9 +1,17 @@
 config_params = {
     "dbname":"nba",
-    "user":"postgres",
-    "password":"YOUR_PASSWORD",
-    "host":"localhost",
-    "port":"5432",
+    "user":"postgres",  # Change to personal info
+    "password":"YOU_PASSWORD_HERE", # Change to personal info
+    "host":"localhost",  # Change if not local
+    "port":"5432",  # Change if not
+}
+
+
+config_params_no_db = {
+    "user": config_params["user"],  # Change to personal info
+    "password": config_params["password"], # Change to personal info
+    "host": config_params["host"],  # Change if not local
+    "port": config_params["port"],  # Change if not
 }
 
 conn_string = ("postgresql://" + config_params["user"] + ":" + config_params["password"] + "@" +
