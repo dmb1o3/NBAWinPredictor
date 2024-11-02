@@ -208,6 +208,7 @@ def menu_options():
     options = {
         '1': set_up_year_function,
         '2': check_save_missing_game_stats,
+        '3': db.init_database,
         'q': exit,
     }
 
@@ -215,6 +216,7 @@ def menu_options():
         # Print out options
         print("1. Download data for an entire year")
         print("2. Check all downloaded schedules to make sure all game stats are downloaded")
+        print("3. Setup database")
         print("")
 
         # Get users choice and lowercase it to make q/Q the same

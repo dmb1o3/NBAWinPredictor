@@ -122,11 +122,8 @@ def create_database(dbname):
         close_cursor_conn(conn, cursor)
 
 
-if __name__ == "__main__":
+def init_database():
+    create_database(config_params["dbname"])
     create_table(schedule_table, "schedule")
     create_table(team_stats_table, "team_stats")
     create_table(game_stats_table, "game_stats")
-
-
-
-   # upload_csv_to_postgres(r"C:\Users\mrjoy\PycharmProjects\NBAWinPredictor\data\games\2022\schedule.csv")
