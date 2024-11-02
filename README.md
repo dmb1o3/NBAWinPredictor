@@ -1,4 +1,4 @@
-# Description of NBA Win Predictor
+# Description of NBA Win Predictor (OUTDATED)
 This was a project built to explore machine learning models using something I'm interested in. 
 I am a huge Clippers fan who has been following the NBA for the last couple of years and thought it would help me
 learn more about data science and the NBA. This project is still a work in progress, however, it is at a usable point if you
@@ -130,6 +130,12 @@ stats like minutes played, points, rebounds and more for all playes who played f
 
 
 ## Installation
+### Postgres
+This program requires Postgres to be installed 
+
+[Link to download Postgres](https://www.postgresql.org/download/)
+
+
 ### Python
 This program requires python 3.9 or greater. I would recommend using conda to create a virtual enviroment
 
@@ -138,11 +144,22 @@ This program requires python 3.9 or greater. I would recommend using conda to cr
 2. conda activate envName
 
 
+## Microsoft C++ Build Tools
+[Link to download Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+1. Download and run
+2. Click on Desktop development with C++
+3. Click install
+
 ### Requirements and Running Program
 1. Download repository
-2. Install requirements using "pip install -r requirements.txt" 
-3. Run data_collector.py
-4. Enter in desired seasons
-5. After running can do whatever you would like with data but if you want to test the models go to models.py and change
+2. Have a running Postgres server
+3. Enter password into SQL/config.py
+4. Install requirements using "pip install -r requirements.txt" 
+5. Run NBA_data_collector.py
+6. Run command 3. Setup database
+7. Run command 1 and enter in desired seasons
+8. After running can do whatever you would like with data but if you want to test the models go to models.py and change
    years_to_examine to contain years you have downloaded data for
-6. Run models.py
+9. Run models.py
+
+## Usage

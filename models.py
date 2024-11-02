@@ -1,4 +1,5 @@
 import pandas as pd
+import model_data_collector as dc
 from sklearn.svm import SVC
 from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -106,7 +107,7 @@ def run_model(x_train, x_test, y_train, y_test, model, not_classifier, settings)
     return model
 
 
-def logistic_regression(x_train, x_test, y_train, y_test, features, sfs_settings, settings):
+def logistic_regression(x_train, x_test, y_train, y_test, sfs_settings, settings):
     # Max_iter settings for saga solvers. Other models can go lower but saga solvers will through convergence errors
     sag_max_iter_start = 500
     sag_max_iter_end = 1500
@@ -167,14 +168,8 @@ def logistic_regression(x_train, x_test, y_train, y_test, features, sfs_settings
 
     model = run_model(x_train, x_test, y_train, y_test, model, False, settings)
 
-    # Set up data frame so easier to understand what features are being used
-    # d = pd.DataFrame({"FEATURES": features, "COEFFICIENT": model.coef_[0]})
-    # Sort them by coefficients absolute value and then save
-    # d = d.sort_values(["COEFFICIENT"], key=abs, ascending=False)
-    # d.to_csv("data/models/Linear_Regression_Features_COEF.csv", index=False)
 
-
-def ridge_classification(x_train, x_test, y_train, y_test, features, sfs_settings, settings):
+def ridge_classification(x_train, x_test, y_train, y_test, sfs_settings, settings):
     param_grid = [
         {
             'solver': ["sag", "saga"],
@@ -210,11 +205,6 @@ def ridge_classification(x_train, x_test, y_train, y_test, features, sfs_setting
 
     model = run_model(x_train, x_test, y_train, y_test, model, False, settings)
 
-    # Set up data frame so easier to understand what features are being used
-    # d = pd.DataFrame({"FEATURES": features, "COEFFICIENT": model.coef_[0]})
-    # Sort them by coefficients absolute value and then save
-    # d = d.sort_values(["COEFFICIENT"], key=abs, ascending=False)
-    # d.to_csv("data/models/Ridge_Classifier_Features_COEF.csv", index=False)
 
 
 def random_forest(x_train, x_test, y_train, y_test, sfs_settings, settings):
@@ -404,11 +394,10 @@ def bet_on_home_team(results):
 def main():
     # @TODO Look into implementing validation set
     # @TODO test out model using training data in order for certain years maybe 2020-2022 and testing data as 2023
-    # @TODO Change how we get data and test using dataframes. If we can will be easier to save data about sfs
     # Default years to use as data
     years_to_examine = ["2020", "2021", "2022", "2023"]
 
-    # Ask user if they would like to use default or set their own
+    # Ask users what years to use for NBA data
     print("Do you want to use current years or input new years? (Enter number of choice)")
     print("Current years: " + str(years_to_examine))
     print("1. Use current years")
@@ -422,8 +411,25 @@ def main():
 
     # Start setting up setings
     settings = "Done using data from " + str(years_to_examine)
+
+    # Ask user what type of data from years they want to use
+    options = {
+        '1': lambda: dc.get_averaged_team_stats(years_to_examine),
+        'q': exit,
+    }
+    print("\nWhat type of data would you like to feed models?")
+    print("1. Averaged team stats")
+    # Get users choice and lowercase it to make q/Q the same
+    user_selection = input("Enter number associated with choice (Enter q to exit): ")
+    user_selection = user_selection.lower()
+
+    # Call menu option if valid if not let user know how to properly use menu
+    if user_selection in options:
+        x, y = options[user_selection]()
+    else:
+        dc.invalid_option(len(options))
+
     # Get data, target values and features of data
-    x, y, features = get_data_for_model(years_to_examine)
 
     # Ask user how we should split data
     print("\nFor the seasons entered do you want randomly split data or go sequentially?")
@@ -472,7 +478,7 @@ def main():
     # If they would like to scale data then scale it
     if user_answer == "1":
         # Scale data
-        print("\nScaling data\n")
+        print("\nScaling data")
         scaler = StandardScaler()
         x_train = scaler.fit_transform(x_train)
         x_test = scaler.fit_transform(x_test)
@@ -498,9 +504,9 @@ def main():
     print("\nIf you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))
 
     # Run models
+    logistic_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
+    ridge_classification(x_train, x_test, y_train, y_test, sfs_settings, settings)
     random_forest(x_train, x_test, y_train, y_test, sfs_settings, settings)
-    logistic_regression(x_train, x_test, y_train, y_test, features, sfs_settings, settings)
-    ridge_classification(x_train, x_test, y_train, y_test, features, sfs_settings, settings)
     gaussian_process_classifier(x_train, x_test, y_train, y_test, sfs_settings, settings)
     knn(x_train, x_test, y_train, y_test, sfs_settings, settings)
     gradient_boosting(x_train, x_test, y_train, y_test, sfs_settings, settings)
