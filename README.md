@@ -1,11 +1,12 @@
-# Description of NBA Win Predictor (OUTDATED)
-This was a project built to explore machine learning models using something I'm interested in. 
-I am a huge Clippers fan who has been following the NBA for the last couple of years and thought it would help me
+# Description of NBA Win Predictor (BEING UPDATED)
+This was a project built to explore machine learning and SQL using something I'm interested in. 
+I am a Clippers fan who has been following the NBA for the last couple of years and thought it would help me
 learn more about data science and the NBA. This project is still a work in progress, however, it is at a usable point if you
 would like to try it out or do your own projects. 
 
-In this project, I used python, pandas and sci kit learn. Python and pandas were used heavily to gather, prepare and 
-clean the data. While scikit learn was used to set up the models and hyperparameter tuning
+In this project, I used Python, Psycopg2, PostgreSQL, Pandas and Sci-kit Learn. I used these to create python scripts
+that can be used to download data from NBA API, create and upload data to database and tables and then collect data from
+database to be fed to Sci-kit learn models. 
 
 My baseline to compare the models was 55% as that was the average win rate if you just bet on the home team. 
 So far, with the models implemented, I am able to get 60–65% depending on the model and how much data is used. 
@@ -14,8 +15,8 @@ With my best results coming from the 2020 to 2023 season of 65% accuracy with lo
 
 ## Overview
 
-### data_collector.py
-This file is used to both download and/or prepare the data. 
+### NBA_data_collector.py
+This file is used to download data from NBA api and upload it to a running PostgresSQL server
 
 #### Downloading Data
 ![Leauge Schedule Diagram.svg](README%20Diagrams%2FDownload%20Diagram.svg)
@@ -115,29 +116,16 @@ with Balanced Classes by Under Sampling Majority, with Scaled Data
 
 ```
 
-### league_data.py
-[Link to repo where the file was taken](https://github.com/swar/nba_api/blob/master/docs/nba_api/stats/endpoints/leaguegamelog.md)
-
-This file is used to easily pull data from NBA API. Specifically, it is used to pull the league schedule for a 
-given year. Allowing us to know what games were played, the game ids for those games, what teams played and other basic information.
-
-
-### box_score_data.py
-[Link to repo where the file was taken](https://github.com/swar/nba_api/blob/master/docs/nba_api/stats/endpoints/boxscoretraditionalv2.md)
-
-This file is used to easily pull data from NBA API. Specifically, it is used to pull the box score data containing
-stats like minutes played, points, rebounds and more for all playes who played from both teams that played.
-
 
 ## Installation
 ### Postgres
-This program requires Postgres to be installed 
+This program requires Postgres to be installed and running
 
 [Link to download Postgres](https://www.postgresql.org/download/)
 
 
 ### Python
-This program requires python 3.9 or greater. I would recommend using conda to create a virtual enviroment
+This program has been tested to run on python 3.9. I would recommend using conda to create a virtual enviroment
 
 [Link to a guide to install conda](https://developers.google.com/earth-engine/guides/python_install-conda)
 1. conda create --name envName python=3.9
@@ -157,9 +145,5 @@ This program requires python 3.9 or greater. I would recommend using conda to cr
 4. Install requirements using "pip install -r requirements.txt" 
 5. Run NBA_data_collector.py
 6. Run command 3. Setup database
-7. Run command 1 and enter in desired seasons
-8. After running can do whatever you would like with data but if you want to test the models go to models.py and change
-   years_to_examine to contain years you have downloaded data for
-9. Run models.py
-
-## Usage
+7. Run command 1. Download data for an entire year and enter in desired seasons
+8. After running can do whatever you would like with data but if you want to test the models run models.py
