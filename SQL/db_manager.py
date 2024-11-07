@@ -1,5 +1,5 @@
-from SQL.config import team_stats_table, game_stats_table, config_params, config_params_no_db, conn_string, \
-    schedule_table, config_params_no_db
+from SQL.config import config_params, conn_string, config_params_no_db
+from SQL.tables import team_stats_table, adv_team_stats_table, player_stats_table, adv_player_stats_table,  schedule_table
 from sqlalchemy import create_engine
 import psycopg2
 
@@ -118,21 +118,24 @@ def create_database(dbname):
         cursor = conn.cursor()
 
     except Exception as e:
-        print(f"Error connecting to Postgres SQL server: {e}")
+        print(f"\nError connecting to Postgres SQL server: {e}")
 
     try:
         cursor.execute(f"CREATE DATABASE {dbname};")
-        print(f"Successfully created database {dbname}")
+        print(f"\nSuccessfully created database {dbname}")
 
     except Exception as e:
-        print(f"Error creating database {dbname}: {e}")
+        print(f"\nError creating database {dbname}: {e}")
 
     finally:
         close_cursor_conn(conn, cursor)
 
 
 def init_database():
+    # @TODO Change this to be a list so we can just loop
     create_database(config_params["dbname"])
     create_table(schedule_table, "schedule")
     create_table(team_stats_table, "team_stats")
-    create_table(game_stats_table, "game_stats")
+    create_table(adv_team_stats_table, "adv_team_stats_table")
+    create_table(player_stats_table, "game_stats")
+    create_table(adv_player_stats_table, "adv_player_stats_table")

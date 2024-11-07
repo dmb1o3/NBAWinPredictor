@@ -133,6 +133,8 @@ This program has been tested to run on python 3.9. I would recommend using conda
 
 
 ### Microsoft C++ Build Tools
+This program requires you have Microsoft C++ Build Tools installed
+
 [Link to download Microsoft C++ Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
 1. Download and run
 2. Click on Desktop development with C++
