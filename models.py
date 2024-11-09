@@ -9,11 +9,11 @@ from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import accuracy_score, mean_squared_error, classification_report
 from sklearn.preprocessing import StandardScaler
-from data_collector import get_data_for_model, handle_year_input
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn.pipeline import Pipeline
+from NBA_data_collector import handle_year_input
 
 RANDOM_STATE = 100
 
