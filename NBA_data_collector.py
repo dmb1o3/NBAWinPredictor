@@ -212,7 +212,6 @@ def check_save_missing_game_stats():
     :return: Nothing
     """
     games_no_game_stats = dc.get_missing_game_data()[0] # Don't need col names so take first return value only
-    print(games_no_game_stats)
     print("\nMissing game stats for " + str(len(games_no_game_stats)) + " games\n")
     # Reset games processed for multiple runs without reset
     # Hopefully doesn't happen but possible that it timeouts during redownload and user needs to run command again
@@ -246,9 +245,11 @@ def set_up_year_function():
                        "2022-2023: ")
     years = handle_year_input(year_input)
     for year in years:
-        # @TODO Check for a year if we already have in database. If we do simply run check missing stats on for year instead
-        # of pinging API
-        get_save_data_for_year(year)
+        if dc.does_schedule_for_year_exist(year):
+            print(f"\nSchedule already exists for {year} checking if any missing games")
+            check_save_missing_game_stats()
+        else:
+            get_save_data_for_year(year)
 
 
 def invalid_option(options_length):

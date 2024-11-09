@@ -1,6 +1,20 @@
 from SQL import db_manager as db
 # @TODO Think about combining with db manager. Might make sense logically
 
+def does_schedule_for_year_exist(year):
+    """
+    Given a string representing a year will return true if database has schedule for that year and false if not
+    """
+    query = """
+    SELECT EXISTS(
+        SELECT 1
+        FROM schedule s
+        WHERE RIGHT("SEASON_ID", 4) = %(year)s
+    );
+    """
+    return db.run_sql_query_params(query, {"year":year})[0][0][0]
+
+
 def get_missing_game_data():
     # Query to get game ids and season ids for all game stats missing from schedules in schedule table
     query = """
