@@ -137,5 +137,5 @@ def init_database():
     create_table(schedule_table, "schedule")
     create_table(team_stats_table, "team_stats")
     create_table(adv_team_stats_table, "adv_team_stats_table")
-    create_table(player_stats_table, "game_stats")
+    create_table(player_stats_table, "player_stats")
     create_table(adv_player_stats_table, "adv_player_stats_table")

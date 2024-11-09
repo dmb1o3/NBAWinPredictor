@@ -9,7 +9,7 @@ import time
 
 
 # How many threads to use when downloading individual game data from NBA API
-NUM_THREADS = 5
+NUM_THREADS = 3
 # Max amount of times to retry download as sometimes they can timeout
 MAX_DOWNLOAD_ATTEMPTS = 10
 # Used to prevent duplicate request of data from NBA API
@@ -53,6 +53,7 @@ def dash_to_individual(years):
 
     return years
 
+
 def handle_year_input(inputs):
     """
     Given input from years will break down into array including dashed entries i.e.,
@@ -72,6 +73,7 @@ def handle_year_input(inputs):
 
     return years
 
+
 def minute_sec_decompress(time_str):
     time_str = str(time_str)
     if time_str == "0":
@@ -88,8 +90,6 @@ def minute_sec_decompress(time_str):
 
     # Recombine and return
     return f"{minutes}:{seconds}"
-
-
 
 
 @retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS)
@@ -113,7 +113,7 @@ def get_save_advanced_box_score_data(game_id):
 
 
 @retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS)
-def get_save_box_score_data(game_id, year):
+def get_save_box_score_data(game_id):
     try:
         b_score_data = b_data.BoxScoreTraditionalV2(game_id=game_id)
         game_data = b_score_data.get_data_frames()[0]
@@ -123,7 +123,7 @@ def get_save_box_score_data(game_id, year):
         game_data["MIN"] = game_data["MIN"].apply(minute_sec_decompress)
         game_data = game_data.rename(columns={"TO": "TOV"})
         # Upload game stat to database
-        db.upload_df_to_postgres(game_data, "game_stats", False)
+        db.upload_df_to_postgres(game_data, "player_stats", False)
     except Exception as e:
         print(str(e) + " for " + str(game_id))
 
@@ -148,7 +148,7 @@ def threaded_get_save_all_game_data(game_id, year):
             GAME_PROCESSED.add(game_id)
 
         # Get Box Score data
-        get_save_box_score_data(game_id, year)
+        get_save_box_score_data(game_id)
         # Get advanced stats in testing prior to 1995 returns no data
         if int(year) > 1995:
             get_save_advanced_box_score_data(game_id)
@@ -211,8 +211,8 @@ def check_save_missing_game_stats():
 
     :return: Nothing
     """
-    # @TODO update to look for stats in other tables that are missing
-    games_no_game_stats = dc.get_missing_game_data()
+    games_no_game_stats = dc.get_missing_game_data()[0] # Don't need col names so take first return value only
+    print(games_no_game_stats)
     print("\nMissing game stats for " + str(len(games_no_game_stats)) + " games\n")
     # Reset games processed for multiple runs without reset
     # Hopefully doesn't happen but possible that it timeouts during redownload and user needs to run command again
@@ -220,6 +220,8 @@ def check_save_missing_game_stats():
     global GAME_PROCESSED
     GAME_PROCESSED = set()
 
+    # @TODO Update so we don't ping nba API more then needed. Unlikely but if advanced stats fail to upload but player
+    # stats do we will still ping api for game stats and advanced stats instead of just advanced stats
     with ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
         executor.map(lambda game:threaded_get_save_all_game_data(game[0], game[1]), games_no_game_stats)
 
@@ -244,6 +246,8 @@ def set_up_year_function():
                        "2022-2023: ")
     years = handle_year_input(year_input)
     for year in years:
+        # @TODO Check for a year if we already have in database. If we do simply run check missing stats on for year instead
+        # of pinging API
         get_save_data_for_year(year)
 
 
@@ -277,8 +281,6 @@ def menu_options():
             invalid_option(len(options))
 
         print("")
-
-
 
 
 if __name__ == "__main__":

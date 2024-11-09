@@ -1,16 +1,26 @@
 from SQL import db_manager as db
+# @TODO Think about combining with db manager. Might make sense logically
 
 def get_missing_game_data():
     # Query to get game ids and season ids for all game stats missing from schedules in schedule table
     query = """
-    SELECT "GAME_ID", "SEASON_ID"
+    SELECT DISTINCT "GAME_ID", RIGHT("SEASON_ID",4)
     FROM schedule s
     WHERE NOT EXISTS (
-        SELECT 1 
-        FROM game_stats gs
-        WHERE s."GAME_ID" = gs."GAME_ID"
+        SELECT 1
+        FROM player_stats ps
+        WHERE s."GAME_ID" = ps."GAME_ID"
+    )
+    OR NOT EXISTS (
+    SELECT 1
+    FROM adv_player_stats aps
+    WHERE s."GAME_ID" = aps."GAME_ID"
+    )
+    OR NOT EXISTS (
+    SELECT 1
+    FROM adv_team_stats ats
+    WHERE s."GAME_ID" = ats."GAME_ID"
     );
-
     """
     return db.run_sql_query(query)
 
@@ -98,8 +108,3 @@ def get_data_from_table(return_column_names, table_name, col_conditions):
     print(col_conditions)
 
     return db.run_sql_query_params(query, col_conditions)
-
-
-
-if __name__ == "__main__":
-    print(get_data_from_table(["*"],"game_stats",{"PLAYER_NAME" :"= Kevin Garnett", "PTS":"> 20"}))
