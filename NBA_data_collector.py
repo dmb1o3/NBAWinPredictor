@@ -9,9 +9,9 @@ import time
 
 
 # How many threads to use when downloading individual game data from NBA API
-NUM_THREADS = 3
+NUM_THREADS = 4 # If put above 4 way more likely for threads to timeout
 # Max amount of times to retry download as sometimes they can timeout
-MAX_DOWNLOAD_ATTEMPTS = 10
+MAX_DOWNLOAD_ATTEMPTS = 10 # CANNOT set to -1 for infinite tries
 # Used to prevent duplicate request of data from NBA API
 GAME_LOCK = Lock()
 GAME_PROCESSED = set()
@@ -162,10 +162,16 @@ def get_save_league_schedule_team_stats(year):
     """
 
     """
-    stats = ["GAME_ID", "MATCHUP", "MIN", "FGM", "FGA", "FG_PCT", "FG3M", "FG3A", "FG3_PCT", "FTM", "FTA", "FT_PCT",
-             "OREB", "DREB","REB", "AST", "STL", "BLK", "TOV", "PF", "PTS", "PLUS_MINUS"]
+    team_stats_cols = ["GAME_ID", "TEAM_ID", "TEAM_NAME", "TEAM_ABBREVIATION", "MIN",
+             "FGM", "FGA", "FG_PCT", "FG3M", "FG3A", "FG3_PCT", "FTM", "FTA",
+             "FT_PCT", "OREB", "DREB","REB", "AST", "STL", "BLK", "TOV", "PF", "PTS", "PLUS_MINUS"]
+
+
     league_data = l_data.LeagueGameLog(season=year)
     league_data = league_data.get_data_frames()[0]
+
+    team_data = league_data[team_stats_cols]
+
     # Add OPP_TEAM_ID
     df_at = league_data[league_data['MATCHUP'].str.contains('@')][['GAME_ID', 'TEAM_ID', 'TEAM_ABBREVIATION', 'TEAM_NAME']].rename(
         columns={'TEAM_ID': 'OPP_TEAM_ID', 'TEAM_ABBREVIATION': 'OPP_TEAM_ABBREVIATION', 'TEAM_NAME': 'OPP_TEAM_NAME' })
@@ -179,15 +185,12 @@ def get_save_league_schedule_team_stats(year):
     league_data = league_data.rename(columns={"WL": "WINNER", "TEAM_ID": "HOME_TEAM_ID", "TEAM_NAME": "HOME_TEAM_NAME",
                                               "TEAM_ABBREVIATION": "HOME_TEAM_ABBREVIATION"})
 
-    team_data = league_data[stats]
-    team_data.loc[:, "MATCHUP"] = team_data["MATCHUP"].str.slice(start=0, stop=3)
-    team_data = team_data.rename(columns={"MATCHUP": "TEAM"})
 
     # Data set contains two instances for a single game, one for the home team and one for the away team
     # here we only take matchups with vs. instead of @ meaning we take all home team copies game
     league_data = league_data[league_data["MATCHUP"].str.contains("vs.", na=False)]
     league_data["GAME_DATE"] = pd.to_datetime(league_data["GAME_DATE"])
-    league_data.drop(stats[2:], axis=1, inplace=True)
+    league_data.drop(team_stats_cols[4:], axis=1, inplace=True)
 
     # Change order so it's more readable for humans
     desired_order = ["SEASON_ID", "GAME_ID", "GAME_DATE", "MATCHUP", "HOME_TEAM_NAME", "HOME_TEAM_ABBREVIATION",
@@ -237,7 +240,7 @@ def get_save_data_for_year(year):
     start_time = time.time()
     with ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
         executor.map(lambda game_id:threaded_get_save_all_game_data(game_id, year), game_ids)
-    print("Finished took " + str((time.time() - start_time) / 60) + " minutes\n ")
+    print("Finished took " + str((time.time() - start_time) / 60) + " minutes\n")
 
 
 def set_up_year_function():

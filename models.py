@@ -1,4 +1,3 @@
-import pandas as pd
 import model_data_collector as dc
 from sklearn.svm import SVC
 from sklearn.gaussian_process import GaussianProcessClassifier
@@ -12,7 +11,6 @@ from sklearn.preprocessing import StandardScaler
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.feature_selection import SequentialFeatureSelector
-from sklearn.pipeline import Pipeline
 from NBA_data_collector import handle_year_input
 
 RANDOM_STATE = 100

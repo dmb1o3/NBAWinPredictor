@@ -87,8 +87,8 @@ def get_team_stats_by_year(year, team_abbrev):
     FROM team_stats
     join schedule on schedule."GAME_ID" = team_stats."GAME_ID"
     WHERE RIGHT(schedule."SEASON_ID", 4) = '{year}'
-    AND team_stats."TEAM" = '{team_abbrev}'
-    ORDER BY "GAME_DATE" ASC
+    AND team_stats."TEAM_ABBREVIATION" = '{team_abbrev}'
+    ORDER BY schedule."GAME_DATE" ASC
     """
 
     return db.run_sql_query(query)
@@ -122,3 +122,4 @@ def get_data_from_table(return_column_names, table_name, col_conditions):
     print(col_conditions)
 
     return db.run_sql_query_params(query, col_conditions)
+

@@ -21,7 +21,9 @@ CREATE TABLE schedule (
 team_stats_table = """
 CREATE TABLE team_stats (
     "GAME_ID" char(10),
-    "TEAM" char(3),
+    "TEAM_ID" char(10),
+    "TEAM_NAME"  varchar(50),
+    "TEAM_ABBREVIATION" char(3),
     "MIN" int,
     "FGM" int,
     "FGA" int,
@@ -43,7 +45,7 @@ CREATE TABLE team_stats (
     "PTS" int,
     "PLUS_MINUS" int,
 
-    PRIMARY KEY ("GAME_ID", "TEAM"),
+    PRIMARY KEY ("GAME_ID", "TEAM_ID"),
     FOREIGN KEY ("GAME_ID") REFERENCES schedule("GAME_ID")
 );
 """

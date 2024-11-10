@@ -89,10 +89,8 @@ def make_opp_column_names(stats):
 
 def get_averaged_team_stats(years):
     team_stats = {} # Key = Team Abbrev i.e LAC, Value = dataframe of stats
-    stats = [
-        ""
-    ]
-    # Get data for years
+    stats = [""]
+    # For each year get data for team and apply rolling average
     for year in years:
         # Get teams in a year
         teams = list(get_team_in_year(year)[0]) # Other value in tuple is column name but don't need
@@ -102,7 +100,7 @@ def get_averaged_team_stats(years):
             stats, column_names = get_team_stats_by_year(year, team)
             stats_df = pd.DataFrame(stats, columns=column_names)
             # Drop columns that cannot be translated to int or float. Drop GAME_ID since does not help predict
-            dropped = ["GAME_ID", "TEAM"]
+            dropped = ["GAME_ID", "TEAM_ID", "TEAM_NAME", "TEAM_ABBREVIATION"]
             dropped_df = stats_df[dropped]
             averaged_team_stats = stats_df.drop(dropped, axis=1)
 
@@ -123,7 +121,7 @@ def get_averaged_team_stats(years):
     # Combine rows in data frame so they contain opponent stats as well
     all_averaged_stats = all_averaged_stats.merge(all_averaged_stats, on='GAME_ID', suffixes=('', '_OPP'))
     # Clean duplicates
-    all_averaged_stats = all_averaged_stats[all_averaged_stats['TEAM'] != all_averaged_stats['TEAM_OPP']]
+    all_averaged_stats = all_averaged_stats[all_averaged_stats['TEAM_ABBREVIATION'] != all_averaged_stats['TEAM_ABBREVIATION_OPP']]
     # Get unique game ids
     game_ids = list(all_averaged_stats["GAME_ID"].unique())
     # Get home team and winner for each game
@@ -139,15 +137,20 @@ def get_averaged_team_stats(years):
     home_team_win = pandas.DataFrame(home_team_win, columns=cols)
 
     all_averaged_stats = all_averaged_stats.merge(home_team_win, on='GAME_ID')
-    all_averaged_stats = all_averaged_stats[all_averaged_stats['TEAM'] == all_averaged_stats['HOME_TEAM_ABBREVIATION']]
+    all_averaged_stats = all_averaged_stats[all_averaged_stats['TEAM_ABBREVIATION'] == all_averaged_stats['HOME_TEAM_ABBREVIATION']]
 
     # Convert winner to binary for if home team won
     all_averaged_stats = all_averaged_stats.rename(columns={'WINNER': 'HOME_TEAM_WON'})
-    all_averaged_stats['HOME_TEAM_WON'] = (all_averaged_stats['TEAM'] == all_averaged_stats['HOME_TEAM_WON']).astype(int)
+    all_averaged_stats['HOME_TEAM_WON'] = (all_averaged_stats['TEAM_ABBREVIATION'] == all_averaged_stats['HOME_TEAM_WON']).astype(int)
 
     # Drop rows we no longer need
-    all_averaged_stats = all_averaged_stats.drop(['HOME_TEAM_ABBREVIATION', 'GAME_ID', "TEAM", "TEAM_OPP"], axis=1)
+    all_averaged_stats = all_averaged_stats.drop(['HOME_TEAM_ABBREVIATION', 'GAME_ID', "TEAM_NAME", "TEAM_NAME_OPP",
+                                                  "TEAM_ABBREVIATION", "TEAM_ABBREVIATION_OPP"], axis=1)
+
     # Reset indexes
     all_averaged_stats = all_averaged_stats.reset_index(drop=True)
-
     return all_averaged_stats.drop(["HOME_TEAM_WON"], axis=1), all_averaged_stats["HOME_TEAM_WON"]
+
+
+if __name__ == "__main__":
+    print(get_team_stats_by_year("2023", "WAS"))
