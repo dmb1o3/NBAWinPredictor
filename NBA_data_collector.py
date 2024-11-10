@@ -260,6 +260,7 @@ def invalid_option(options_length):
 
 
 def menu_options():
+    # @TODO fix how minutes are stored for time stamps as they are being added as hours right now. Maybe make min sec cols
     options = {
         '1': set_up_year_function,
         '2': check_save_missing_game_stats,

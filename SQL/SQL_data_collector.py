@@ -79,6 +79,17 @@ def get_team_in_year(year):
     return db.run_sql_query(query)
 
 
+def get_adv_team_stats_by_year(year, team_abbrev):
+    query = f"""
+    SELECT adv_team_stats.*
+    FROM adv_team_stats
+    join schedule on schedule."GAME_ID" = adv_team_stats."GAME_ID"
+    WHERE RIGHT(schedule."SEASON_ID", 4) = '{year}'
+    AND adv_team_stats."TEAM_ABBREVIATION" = '{team_abbrev}'
+    ORDER BY schedule."GAME_DATE" ASC
+    """
+
+    return db.run_sql_query(query)
 
 
 def get_team_stats_by_year(year, team_abbrev):

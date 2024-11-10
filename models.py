@@ -109,12 +109,12 @@ def logistic_regression(x_train, x_test, y_train, y_test, sfs_settings, settings
     # Max_iter settings for saga solvers. Other models can go lower but saga solvers will through convergence errors
     sag_max_iter_start = 500
     sag_max_iter_end = 1500
-    sag_max_iter_step = 50
+    sag_max_iter_step = 200
 
     # Max_iter settings for sag, liblinear, newton-cholesky, newton-cg and lbfgs solvers
     max_iter_start = 100
     max_iter_end = 1000
-    max_iter_step = 50
+    max_iter_step = 200
 
     # Best settings on 2020-2023 is {'max_iter': 150, 'penalty': 'l1', 'solver': 'liblinear'}
     # Best cross-validation score: 0.60
@@ -413,10 +413,14 @@ def main():
     # Ask user what type of data from years they want to use
     options = {
         '1': lambda: dc.get_averaged_team_stats(years_to_examine),
+        '2': lambda: dc.get_averaged_adv_team_stats(years_to_examine),
+        '3': lambda: dc.get_averaged_team_and_adv_team_stats(years_to_examine),
         'q': exit,
     }
     print("\nWhat type of data would you like to feed models?")
     print("1. Averaged team stats")
+    print("2. Averaged advanced team stats ")
+    print("3. Averaged team and advanced team stats")
     # Get users choice and lowercase it to make q/Q the same
     user_selection = input("Enter number associated with choice (Enter q to exit): ")
     user_selection = user_selection.lower()
@@ -426,8 +430,6 @@ def main():
         x, y = options[user_selection]()
     else:
         dc.invalid_option(len(options))
-
-    # Get data, target values and features of data
 
     # Ask user how we should split data
     print("\nFor the seasons entered do you want randomly split data or go sequentially?")
