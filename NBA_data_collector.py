@@ -89,7 +89,7 @@ def minute_sec_decompress(time_str):
         minutes = int(minutes) + 1
 
     # Recombine and return
-    return f"{minutes}:{seconds}"
+    return f"{minutes} minutes {seconds} seconds"
 
 
 @retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS)

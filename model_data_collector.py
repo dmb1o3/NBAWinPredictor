@@ -8,7 +8,6 @@ from SQL.db_manager import run_sql_query, run_sql_query_params
 GAMES_BACK = 5
 
 
-
 def dash_to_individual(years):
     """
     Function that when called will return a list of strings with years between two years defined by a dash.
@@ -47,6 +46,7 @@ def dash_to_individual(years):
 
 
 
+
 def handle_year_input():
     """
     Given input from years will break down into array including dashed entries i.e.,
@@ -69,7 +69,6 @@ def handle_year_input():
     return years
 
 
-
 def make_opp_column_names(stats):
     """
     Given a list of stats will return a list of column names for those stats with the prefixed attached.
@@ -85,75 +84,6 @@ def make_opp_column_names(stats):
         d.append("OPP_" + stat)
 
     return d
-
-
-
-def average_stats(years):
-    team_stats = {} # Key = Team Abbrev i.e LAC, Value = dataframe of stats
-    stats = [""]
-    # For each year get data for team and apply rolling average
-    for year in years:
-        # Get teams in a year
-        teams = list(get_team_in_year(year)[0]) # Other value in tuple is column name but don't need
-        for team_tuple in teams:
-            team = team_tuple[0]
-            # Get team stats for the year
-            stats, column_names = get_team_stats_by_year(year, team)
-            stats_df = pd.DataFrame(stats, columns=column_names)
-            # Drop columns that cannot be translated to int or float. Drop GAME_ID since does not help predict
-            dropped = ["GAME_ID", "TEAM_ID", "TEAM_NAME", "TEAM_ABBREVIATION"]
-            dropped_df = stats_df[dropped]
-            averaged_team_stats = stats_df.drop(dropped, axis=1)
-
-            # Average stats
-            averaged_team_stats = averaged_team_stats.rolling(GAMES_BACK).mean()
-            # Shift values down 1 so that way we are not using stats from game played to predict game
-            averaged_team_stats = pd.concat([dropped_df, averaged_team_stats.shift()], axis=1)
-            # if team already has dataframe in team_stats dictionary append, if not add new key
-            if team in team_stats:
-                team_stats[team] = pd.concat([team_stats[team], averaged_team_stats], ignore_index=True)
-            else:
-                team_stats[team] = averaged_team_stats
-
-    # Combine all team_data_frames
-    all_averaged_stats = pd.concat(team_stats.values(), ignore_index=True)
-    # Get rid of NA rows caused by rolling average
-    all_averaged_stats = all_averaged_stats.dropna()
-    # Combine rows in data frame so they contain opponent stats as well
-    all_averaged_stats = all_averaged_stats.merge(all_averaged_stats, on='GAME_ID', suffixes=('', '_OPP'))
-    # Clean duplicates
-    all_averaged_stats = all_averaged_stats[all_averaged_stats['TEAM_ABBREVIATION'] != all_averaged_stats['TEAM_ABBREVIATION_OPP']]
-    # Get unique game ids
-    game_ids = list(all_averaged_stats["GAME_ID"].unique())
-    # Get home team and winner for each game
-    # Rows from away teams perspective. If LAL vs LAC tonight 2 rows for game one from LAL and LAC perspective
-    # This will make it so we only have the home team perspective
-    query = f"""
-    SELECT "GAME_ID", "HOME_TEAM_ABBREVIATION", "WINNER"
-    FROM schedule
-    WHERE "GAME_ID" = ANY(%(game_ids)s)
-    """
-    # @TODO Implement way to replace team abbreviation with team id so model can learn teams
-    home_team_win, cols = run_sql_query_params(query, {"game_ids":game_ids})
-    home_team_win = pandas.DataFrame(home_team_win, columns=cols)
-
-    all_averaged_stats = all_averaged_stats.merge(home_team_win, on='GAME_ID')
-    all_averaged_stats = all_averaged_stats[all_averaged_stats['TEAM_ABBREVIATION'] == all_averaged_stats['HOME_TEAM_ABBREVIATION']]
-
-    # Convert winner to binary for if home team won
-    all_averaged_stats = all_averaged_stats.rename(columns={'WINNER': 'HOME_TEAM_WON'})
-    all_averaged_stats['HOME_TEAM_WON'] = (all_averaged_stats['TEAM_ABBREVIATION'] == all_averaged_stats['HOME_TEAM_WON']).astype(int)
-
-    # Drop rows we no longer need
-    all_averaged_stats = all_averaged_stats.drop(['HOME_TEAM_ABBREVIATION', 'GAME_ID', "TEAM_NAME", "TEAM_NAME_OPP",
-                                                  "TEAM_ABBREVIATION", "TEAM_ABBREVIATION_OPP"], axis=1)
-
-    print(all_averaged_stats.to_string())
-
-    # Reset indexes
-    all_averaged_stats = all_averaged_stats.reset_index(drop=True)
-    return all_averaged_stats.drop(["HOME_TEAM_WON"], axis=1),
-
 
 
 def get_averaged_team_stats(years, keep_game_id=False):
@@ -287,6 +217,8 @@ def get_averaged_adv_team_stats(years, keep_game_id=False):
     if not keep_game_id:
         drop_cols.append('GAME_ID')
 
+    print(all_averaged_stats.to_string())
+    exit()
 
     # Drop rows we no longer need
     all_averaged_stats = all_averaged_stats.drop(drop_cols, axis=1)
@@ -310,11 +242,9 @@ def get_averaged_team_and_adv_team_stats(years):
     return merged_team_stats.drop(["HOME_TEAM_WON", "GAME_ID"], axis=1), merged_team_stats["HOME_TEAM_WON"]
 
 
+def get_player_stats(years):
 
-
-
-
-
+    return
 
 if __name__ == "__main__":
-    print(get_team_stats_by_year("2023", "WAS"))
+    print(get_averaged_adv_team_stats(["2023"]))
