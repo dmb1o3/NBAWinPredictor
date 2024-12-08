@@ -107,13 +107,13 @@ def run_model(x_train, x_test, y_train, y_test, model, not_classifier, settings)
 
 def logistic_regression(x_train, x_test, y_train, y_test, sfs_settings, settings):
     # Max_iter settings for saga solvers. Other models can go lower but saga solvers will through convergence errors
-    sag_max_iter_start = 500
-    sag_max_iter_end = 1500
+    sag_max_iter_start = 1000
+    sag_max_iter_end = 4000
     sag_max_iter_step = 200
 
     # Max_iter settings for sag, liblinear, newton-cholesky, newton-cg and lbfgs solvers
-    max_iter_start = 100
-    max_iter_end = 1000
+    max_iter_start = 1000
+    max_iter_end = 4000
     max_iter_step = 200
 
     # Best settings on 2020-2023 is {'max_iter': 150, 'penalty': 'l1', 'solver': 'liblinear'}
@@ -172,19 +172,19 @@ def ridge_classification(x_train, x_test, y_train, y_test, sfs_settings, setting
         {
             'solver': ["sag", "saga"],
             'alpha': [0.1, 0.5, 1.5],
-            'max_iter': range(800, 1500, 100),
+            'max_iter': range(1000, 4000, 200),
             'positive': [False],
         },
         {
             'solver': ["auto", "svd", "cholesky", "lsqr", "sparse_cg"],
             'alpha': [0.1, 0.5, 1.5],
-            'max_iter': range(50, 600, 50),
+            'max_iter': range(1000, 4000, 200),
             'positive': [False],
         },
         {
             'solver': ["lbfgs"],
             'alpha': [0.1, 0.5, 1.5],
-            'max_iter': range(50, 600, 50),
+            'max_iter': range(1000, 4000, 200),
             'positive': [True],
 
         }
@@ -210,10 +210,10 @@ def random_forest(x_train, x_test, y_train, y_test, sfs_settings, settings):
     param_grid = {
         'n_estimators': range(10, 50, 10),
         'criterion': ["gini", "entropy", "log_loss"],
-        'max_depth': list(range(20, 100, 20)),  # + [None],
+        'max_depth': list(range(20, 180, 80)),  # + [None],
         'max_features': ["sqrt", "log2"],  # , None],
-        'min_samples_split': [2, 5, 10],
-        'min_samples_leaf': [1, 4],
+        'min_samples_split': [2, 5, 10, 20],
+        'min_samples_leaf': [1, 4, 10, 20],
         'bootstrap': [True, False]
     }
     print("\nRandomForestClassifier")

@@ -1,5 +1,6 @@
 import pandas
 import pandas as pd
+from SQL.config import PLAYERS_PER_TEAM
 from SQL import SQL_data_collector
 from SQL.SQL_data_collector import get_data_from_table, get_team_stats_by_year, get_team_in_year, get_adv_team_stats_by_year
 from SQL.db_manager import run_sql_query, run_sql_query_params
@@ -242,9 +243,126 @@ def get_averaged_team_and_adv_team_stats(years):
     return merged_team_stats.drop(["HOME_TEAM_WON", "GAME_ID"], axis=1), merged_team_stats["HOME_TEAM_WON"]
 
 
-def get_player_stats(years):
+def get_averaged_player_stats(years, players_per_team=PLAYERS_PER_TEAM, keep_game_id=False):
+    player_stats = {} # Key = Team Abbrev i.e LAC, Value = dataframe of stats
+    stats = [""]
+    # For each year get data for team and apply rolling average
+    for year in years:
+        # Get teams in a year
+        teams = list(get_team_in_year(year)[0]) # Other value in tuple is column name but don't need
+        for team_tuple in teams:
+            team = team_tuple[0]
+            # Get team stats for the year
+            stats, column_names = get_adv_team_stats_by_year(year, team)
+            stats_df = pd.DataFrame(stats, columns=column_names)
+            # Drop columns that cannot be translated to int or float. Drop GAME_ID since does not help predict
+            dropped = ["GAME_ID", "TEAM_ID", "TEAM_NAME", "TEAM_ABBREVIATION",  "TEAM_CITY", "MIN"]
+            dropped_df = stats_df[dropped]
+            averaged_adv_team_stats = stats_df.drop(dropped, axis=1)
 
-    return
+            # Average stats
+            averaged_adv_team_stats = averaged_adv_team_stats.rolling(GAMES_BACK).mean()
+            # Shift values down 1 so that way we are not using stats from game played to predict game
+            averaged_adv_team_stats = pd.concat([dropped_df, averaged_adv_team_stats.shift()], axis=1)
+            # if team already has dataframe in team_stats dictionary append, if not add new key
+            if team in player_stats:
+                player_stats[team] = pd.concat([player_stats[team], averaged_adv_team_stats], ignore_index=True)
+            else:
+                player_stats[team] = averaged_adv_team_stats
+
+    # Combine all team_data_frames
+    all_averaged_stats = pd.concat(player_stats.values(), ignore_index=True)
+    # Get rid of NA rows caused by rolling average
+    all_averaged_stats = all_averaged_stats.dropna()
+    # Combine rows in data frame so they contain opponent stats as well
+    all_averaged_stats = all_averaged_stats.merge(all_averaged_stats, on='GAME_ID', suffixes=('', '_OPP'))
+    # Clean duplicates
+    all_averaged_stats = all_averaged_stats[all_averaged_stats['TEAM_ABBREVIATION'] != all_averaged_stats['TEAM_ABBREVIATION_OPP']]
+    # Get unique game ids
+    game_ids = list(all_averaged_stats["GAME_ID"].unique())
+    # Get home team and winner for each game
+    # Rows from away teams perspective. If LAL vs LAC tonight 2 rows for game one from LAL and LAC perspective
+    # This will make it so we only have the home team perspective
+    query = f"""
+    SELECT "GAME_ID", "HOME_TEAM_ABBREVIATION", "WINNER"
+    FROM schedule
+    WHERE "GAME_ID" = ANY(%(game_ids)s)
+    """
+    home_team_win, cols = run_sql_query_params(query, {"game_ids":game_ids})
+    home_team_win = pandas.DataFrame(home_team_win, columns=cols)
+
+    all_averaged_stats = all_averaged_stats.merge(home_team_win, on='GAME_ID')
+    all_averaged_stats = all_averaged_stats[all_averaged_stats['TEAM_ABBREVIATION'] == all_averaged_stats['HOME_TEAM_ABBREVIATION']]
+
+    # Convert winner to binary for if home team won
+    all_averaged_stats = all_averaged_stats.rename(columns={'WINNER': 'HOME_TEAM_WON'})
+    all_averaged_stats['HOME_TEAM_WON'] = (all_averaged_stats['TEAM_ABBREVIATION'] == all_averaged_stats['HOME_TEAM_WON']).astype(int)
+
+    drop_cols = ['HOME_TEAM_ABBREVIATION', "TEAM_NAME", "TEAM_NAME_OPP",
+                 "TEAM_ABBREVIATION", "TEAM_ABBREVIATION_OPP", "TEAM_CITY", "TEAM_CITY_OPP", "MIN", "MIN_OPP"]
+
+    if not keep_game_id:
+        drop_cols.append('GAME_ID')
+
+    print(all_averaged_stats.to_string())
+    exit()
+
+    # Drop rows we no longer need
+    all_averaged_stats = all_averaged_stats.drop(drop_cols, axis=1)
+
+    all_averaged_stats = all_averaged_stats.reset_index(drop=True)
+    return all_averaged_stats.drop(["HOME_TEAM_WON"], axis=1), all_averaged_stats["HOME_TEAM_WON"]
+
+
+def get_back_2_back(game_ids):
+    """
+    Given a list of game_ids will return three columns in this order GAME_ID, HOME_TEAM_B2B, OPP_TEAM_B2B
+    """
+    query = """
+    WITH game_details AS (
+        SELECT 
+            s."GAME_ID",
+            s."HOME_TEAM_ID",
+            s."OPP_TEAM_ID",
+            s."GAME_DATE",
+            -- Check if home team played the previous day
+            CASE WHEN EXISTS (
+                SELECT 1 
+                FROM schedule prev 
+                WHERE (prev."HOME_TEAM_ID" = s."HOME_TEAM_ID" OR prev."OPP_TEAM_ID" = s."HOME_TEAM_ID")
+                  AND prev."GAME_DATE" = s."GAME_DATE" - INTERVAL '1 day'
+            ) THEN 1 ELSE 0 END AS "HOME_TEAM_B2B",
+            -- Check if away team played the previous day
+            CASE WHEN EXISTS (
+                SELECT 1 
+                FROM schedule prev 
+                WHERE (prev."HOME_TEAM_ID" = s."OPP_TEAM_ID" OR prev."OPP_TEAM_ID" = s."OPP_TEAM_ID")
+                  AND prev."GAME_DATE" = s."GAME_DATE" - INTERVAL '1 day'
+            ) THEN 1 ELSE 0 END AS "OPP_TEAM_B2B"
+        FROM schedule s
+        WHERE s."GAME_ID" = ANY(%(game_ids)s)
+    )
+    SELECT "GAME_ID", "HOME_TEAM_B2B", "OPP_TEAM_B2B"
+    FROM game_details 
+    ORDER BY "GAME_DATE", "GAME_ID"; 
+    """
+
+    b2b_data, cols = run_sql_query_params(query, {"game_ids":game_ids})
+    b2b_data = pandas.DataFrame(b2b_data, columns=cols)
+    return b2b_data
+
+
+
+def get_player_stats(year, player_id):
+    query = """
+    SELECT ps.* 
+    FROM player_stats ps
+    join schedule s on ps."GAME_ID" = s."GAME_ID"
+    WHERE ps."PLAYER_ID" = %(player_id)s
+    AND RIGHT(s."SEASON_ID", 4) = %(year)s
+    ORDER BY s."GAME_DATE"
+    """
+    return run_sql_query_params(query, {"player_id":player_id, "year":year})
 
 if __name__ == "__main__":
-    print(get_averaged_adv_team_stats(["2023"]))
+    print(get_back_2_back(["0020800022","0020800028", "0020800029"]))
