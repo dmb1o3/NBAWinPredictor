@@ -11,7 +11,7 @@ from sklearn.preprocessing import StandardScaler
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.feature_selection import SequentialFeatureSelector
-from NBA_data_collector import handle_year_input
+from backend.NBA_data_collector import handle_year_input
 
 RANDOM_STATE = 100
 

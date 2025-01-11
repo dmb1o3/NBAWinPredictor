@@ -8,9 +8,9 @@ CREATE TABLE schedule (
     "HOME_TEAM_NAME" varchar(50),
     "HOME_TEAM_ABBREVIATION" char(3),
     "HOME_TEAM_ID" char(10),
-    "OPP_TEAM_NAME" varchar(50),
-    "OPP_TEAM_ABBREVIATION" char(3),
-    "OPP_TEAM_ID" char(10),
+    "AWAY_TEAM_NAME" varchar(50),
+    "AWAY_TEAM_ABBREVIATION" char(3),
+    "AWAY_TEAM_ID" char(10),
     "WINNER" char(3),
     "VIDEO_AVAILABLE" int,
 

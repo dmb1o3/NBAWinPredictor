@@ -172,9 +172,9 @@ def get_save_league_schedule_team_stats(year):
 
     team_data = league_data[team_stats_cols]
 
-    # Add OPP_TEAM_ID
+    # Add away team data
     df_at = league_data[league_data['MATCHUP'].str.contains('@')][['GAME_ID', 'TEAM_ID', 'TEAM_ABBREVIATION', 'TEAM_NAME']].rename(
-        columns={'TEAM_ID': 'OPP_TEAM_ID', 'TEAM_ABBREVIATION': 'OPP_TEAM_ABBREVIATION', 'TEAM_NAME': 'OPP_TEAM_NAME' })
+        columns={'TEAM_ID': 'AWAY_TEAM_ID', 'TEAM_ABBREVIATION': 'AWAY_TEAM_ABBREVIATION', 'TEAM_NAME': 'AWAY_TEAM_NAME' })
     # Merge DataFrames on 'GAME_ID'
     league_data = pd.merge(league_data, df_at, on='GAME_ID', how='left')
 
@@ -194,7 +194,7 @@ def get_save_league_schedule_team_stats(year):
 
     # Change order so it's more readable for humans
     desired_order = ["SEASON_ID", "GAME_ID", "GAME_DATE", "MATCHUP", "HOME_TEAM_NAME", "HOME_TEAM_ABBREVIATION",
-                     "HOME_TEAM_ID", "OPP_TEAM_NAME", "OPP_TEAM_ABBREVIATION", "OPP_TEAM_ID", "WINNER","VIDEO_AVAILABLE"]
+                     "HOME_TEAM_ID", "AWAY_TEAM_NAME", "AWAY_TEAM_ABBREVIATION", "AWAY_TEAM_ID", "WINNER","VIDEO_AVAILABLE"]
     league_data = league_data.reindex(columns=desired_order)
 
     # Upload schedule and team data for season to database
@@ -261,6 +261,7 @@ def invalid_option(options_length):
 
 def menu_options():
     # @TODO fix how minutes are stored for time stamps as they are being added as hours right now. Maybe make min sec cols
+    # @TODO fix how we check if we can not save year. If current year and more games are played since last saved. Will not save those games played
     options = {
         '1': set_up_year_function,
         '2': check_save_missing_game_stats,

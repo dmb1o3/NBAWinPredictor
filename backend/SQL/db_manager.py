@@ -1,5 +1,5 @@
-from SQL.config import config_params, conn_string, config_params_no_db
-from SQL.tables import team_stats_table, adv_team_stats_table, player_stats_table, adv_player_stats_table,  schedule_table
+from backend.SQL.config import config_params, conn_string, config_params_no_db
+from backend.SQL.tables import team_stats_table, adv_team_stats_table, player_stats_table, adv_player_stats_table,  schedule_table
 from sqlalchemy import create_engine
 import psycopg2
 
@@ -82,9 +82,8 @@ def upload_csv_to_postgres(csv_file_path):
     conn = connect_to_server(True)
     cursor = conn.cursor()
     try:
-        # Use the COPY command to load the CSV data
         with open(csv_file_path, 'r') as f:
-            next(f)  # Skip the header row if your CSV has one
+            next(f)  # Skip the header row if CSV has one
             cursor.copy_from(f, 'schedule', sep=',', columns=("GAME_ID", "GAME_DATE", "MATCHUP", "HOME_TEAM_ID",
                                                               "OPP_TEAM_ID", "HOME_TEAM", "WINNER", "HOME_TEAM_WON"))
 

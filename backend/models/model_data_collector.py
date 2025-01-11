@@ -1,12 +1,39 @@
 import pandas
 import pandas as pd
-from SQL.config import PLAYERS_PER_TEAM
-from SQL import SQL_data_collector
-from SQL.SQL_data_collector import get_data_from_table, get_team_stats_by_year, get_team_in_year, get_adv_team_stats_by_year
-from SQL.db_manager import run_sql_query, run_sql_query_params
+from backend.SQL.config import PLAYERS_PER_TEAM
+from backend.SQL import SQL_data_collector
+from backend.SQL.SQL_data_collector import get_data_from_table, get_team_stats_by_year, get_team_in_year, get_adv_team_stats_by_year
+from backend.SQL.db_manager import run_sql_query, run_sql_query_params
 
 #@TODO add a function to make a B2B column give game ids and columns so it can be reused for team, player or other stats
 GAMES_BACK = 5
+
+
+
+def get_stats(stats_to_get, years, b2b=False, win_streak=False):
+    """
+    Function will return stats for
+
+    """
+    options = {
+        'Average Team Stats': lambda: get_averaged_team_stats(years),
+        'Averaged Advanced Team Stats': lambda: get_averaged_adv_team_stats(years),
+        'Averaged Team and Advanced Team Stats': lambda: get_averaged_team_and_adv_team_stats(years),
+    }
+
+
+
+    game_ids = stats["GAME_ID"]
+    # Add back to back column
+    if b2b:
+        b2b_cols = get_back_2_back(game_ids)
+        stats = stats.merge(b2b_cols, on='GAME_ID')
+    if win_streak:
+        win_streak_cols = get_win_streak(game_ids)
+        stats = stats.merge(win_streak_cols, on='GAME_ID')
+
+    return stats
+
 
 
 def dash_to_individual(years):
@@ -218,8 +245,6 @@ def get_averaged_adv_team_stats(years, keep_game_id=False):
     if not keep_game_id:
         drop_cols.append('GAME_ID')
 
-    print(all_averaged_stats.to_string())
-    exit()
 
     # Drop rows we no longer need
     all_averaged_stats = all_averaged_stats.drop(drop_cols, axis=1)
@@ -239,6 +264,14 @@ def get_averaged_team_and_adv_team_stats(years):
     merged_team_stats = adv_team_stats.join(winner)
     # Combine
     merged_team_stats = merged_team_stats.merge(average_team_stats, on=["GAME_ID", "TEAM_ID", "TEAM_ID_OPP"])
+
+    # Get game ids
+    game_ids = list(merged_team_stats["GAME_ID"])
+    b2b_df = get_back_2_back(game_ids)
+    # combine
+    merged_team_stats = merged_team_stats.merge(b2b_df, on=["GAME_ID"])
+    merged_team_stats.to_csv('test.csv', index=False)
+
 
     return merged_team_stats.drop(["HOME_TEAM_WON", "GAME_ID"], axis=1), merged_team_stats["HOME_TEAM_WON"]
 
@@ -323,26 +356,64 @@ def get_back_2_back(game_ids):
         SELECT 
             s."GAME_ID",
             s."HOME_TEAM_ID",
-            s."OPP_TEAM_ID",
+            s."AWAY_TEAM_ID",
             s."GAME_DATE",
             -- Check if home team played the previous day
             CASE WHEN EXISTS (
                 SELECT 1 
                 FROM schedule prev 
-                WHERE (prev."HOME_TEAM_ID" = s."HOME_TEAM_ID" OR prev."OPP_TEAM_ID" = s."HOME_TEAM_ID")
+                WHERE (prev."HOME_TEAM_ID" = s."HOME_TEAM_ID" OR prev."AWAY_TEAM_ID" = s."HOME_TEAM_ID")
                   AND prev."GAME_DATE" = s."GAME_DATE" - INTERVAL '1 day'
             ) THEN 1 ELSE 0 END AS "HOME_TEAM_B2B",
             -- Check if away team played the previous day
             CASE WHEN EXISTS (
                 SELECT 1 
                 FROM schedule prev 
-                WHERE (prev."HOME_TEAM_ID" = s."OPP_TEAM_ID" OR prev."OPP_TEAM_ID" = s."OPP_TEAM_ID")
+                WHERE (prev."HOME_TEAM_ID" = s."AWAY_TEAM_ID" OR prev."AWAY_TEAM_ID" = s."AWAY_TEAM_ID")
                   AND prev."GAME_DATE" = s."GAME_DATE" - INTERVAL '1 day'
-            ) THEN 1 ELSE 0 END AS "OPP_TEAM_B2B"
+            ) THEN 1 ELSE 0 END AS "AWAY_TEAM_B2B"
         FROM schedule s
         WHERE s."GAME_ID" = ANY(%(game_ids)s)
     )
-    SELECT "GAME_ID", "HOME_TEAM_B2B", "OPP_TEAM_B2B"
+    SELECT "GAME_ID", "HOME_TEAM_B2B", "AWAY_TEAM_B2B"
+    FROM game_details 
+    ORDER BY "GAME_DATE", "GAME_ID"; 
+    """
+
+    b2b_data, cols = run_sql_query_params(query, {"game_ids":game_ids})
+    b2b_data = pandas.DataFrame(b2b_data, columns=cols)
+    return b2b_data
+
+
+def get_win_streak(game_ids):
+    """
+    Given a list of game_ids will return three columns in this order GAME_ID, HOME_TEAM_WIN_STREAK, OPP_TEAM_B2B
+    """
+    query = """
+    WITH game_details AS (
+        SELECT 
+            s."GAME_ID",
+            s."HOME_TEAM_ID",
+            s."AWAY_TEAM_ID",
+            s."GAME_DATE",
+            -- Check if home team played the previous day
+            CASE WHEN EXISTS (
+                SELECT 1 
+                FROM schedule prev 
+                WHERE (prev."HOME_TEAM_ID" = s."HOME_TEAM_ID" OR prev."AWAY_TEAM_ID" = s."HOME_TEAM_ID")
+                  AND prev."GAME_DATE" = s."GAME_DATE" - INTERVAL '1 day'
+            ) THEN 1 ELSE 0 END AS "HOME_TEAM_B2B",
+            -- Check if away team played the previous day
+            CASE WHEN EXISTS (
+                SELECT 1 
+                FROM schedule prev 
+                WHERE (prev."HOME_TEAM_ID" = s."AWAY_TEAM_ID" OR prev."AWAY_TEAM_ID" = s."AWAY_TEAM_ID")
+                  AND prev."GAME_DATE" = s."GAME_DATE" - INTERVAL '1 day'
+            ) THEN 1 ELSE 0 END AS "AWAY_TEAM_B2B"
+        FROM schedule s
+        WHERE s."GAME_ID" = ANY(%(game_ids)s)
+    )
+    SELECT "GAME_ID", "HOME_TEAM_B2B", "AWAY_TEAM_B2B"
     FROM game_details 
     ORDER BY "GAME_DATE", "GAME_ID"; 
     """

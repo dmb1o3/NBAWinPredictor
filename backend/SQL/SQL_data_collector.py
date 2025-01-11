@@ -1,4 +1,4 @@
-from SQL import db_manager as db
+from backend.SQL import db_manager as db
 # @TODO Think about combining with db manager. Might make sense logically
 
 def does_schedule_for_year_exist(year):
