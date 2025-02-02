@@ -1,6 +1,7 @@
 'use client';
 import React, { useEffect, useState } from 'react';
 import { Game } from '../types/types.ts';
+import Link from "next/link";
 
 const GameGrid: React.FC = () => {
   const [games, setGames] = useState<Game[]>([]);
@@ -27,12 +28,21 @@ const GameGrid: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {games.map((game) => (
-            <div key={game.GAME_ID} className="border p-4 rounded shadow-md">
+              <Link
+                href={{
+                    pathname: '/box-score',
+                    query: { gameID: game.GAME_ID },
+                }}
+                key={game.GAME_ID}
+              >
+            <div className="border p-4 rounded shadow-md">
               <h2 className="text-xl font-bold">
                 {game.HOME_TEAM_NAME} vs. {game.AWAY_TEAM_NAME}
               </h2>
               <p>{game.GAME_DATE}</p>
             </div>
+            </Link>
+
           ))}
         </div>
       )}
