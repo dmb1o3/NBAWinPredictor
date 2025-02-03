@@ -31,7 +31,7 @@ const GameGrid: React.FC = () => {
               <Link
                 href={{
                     pathname: '/box-score',
-                    query: { gameID: game.GAME_ID },
+                    query: { game_ID: game.GAME_ID },
                 }}
                 key={game.GAME_ID}
               >

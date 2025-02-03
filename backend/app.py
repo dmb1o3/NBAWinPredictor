@@ -3,7 +3,6 @@ from flask_cors import CORS
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from SQL.config import config_params
-import os
 
 app = Flask(__name__)
 CORS(app)
@@ -22,44 +21,38 @@ def get_db_connection():
 def get_box_score():
     try:
         # Check if variables are set. If not set to default values
-        game_id = str(request.args.get('gameID'))
-
+        # Check if page and limit are set. If not set to default values
+        game_ID = str(request.args.get('game_ID'))
 
         # Establish database connection
         conn = get_db_connection()
         cursor = conn.cursor(cursor_factory=RealDictCursor)
 
-        # Query for game info
+        # Query to get info about the game played
         query = """
             SELECT "GAME_DATE", "HOME_TEAM_ABBREVIATION", "AWAY_TEAM_ABBREVIATION", "WINNER"
             FROM schedule 
             WHERE "GAME_ID" = %s;
-            """
-        cursor.execute(query, game_id)
+        """
+        cursor.execute(query, (game_ID,))
         game_info = cursor.fetchall()
 
-        # Query for box scores
+        # Query to get box_scores
         query = """
-            SELECT * 
+            SELECT *
             FROM team_stats 
             WHERE "GAME_ID" = %s;
         """
-        cursor.execute(query, game_id)
+        cursor.execute(query, (game_ID,))
         box_score = cursor.fetchall()
+
 
         # Close connection
         cursor.close()
         conn.close()
 
-        print(game_info)
-
-        data = {
-            'game_info': game_info,
-            'box_scores': box_score
-        }
-
         # Return the results as JSON
-        return jsonify(data)
+        return jsonify(game_info, box_score)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
