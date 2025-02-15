@@ -35,7 +35,7 @@ const GameGrid: React.FC = () => {
                 }}
                 key={game.GAME_ID}
               >
-            <div className="border p-4 rounded shadow-md">
+            <div className="border p-4 bg-grid-top hover:bg-transparent rounded shadow-md">
               <h2 className="text-xl font-bold">
                 {game.HOME_TEAM_NAME} vs. {game.AWAY_TEAM_NAME}
               </h2>
