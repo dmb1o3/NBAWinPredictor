@@ -46,6 +46,11 @@ function NavBar() {
                     Predictions
                   </Link>
                 </li>
+                <li className="py-2 pr-3 pb-2 text-base text-center text-white md:border-b-0 md:hover:text-blue-600 md:hover:bg-transparent">
+                  <Link href="/data" onClick={() => setNavbar(!navbar)}>
+                    Data
+                  </Link>
+                </li>
               </ul>
             </div>
           </div>
