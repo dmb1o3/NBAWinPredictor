@@ -10,7 +10,7 @@ const GameGrid: React.FC = () => {
   useEffect(() => {
     const fetchGames = async () => {
       try {
-        const response = await fetch('http://localhost:5000/recent-games?limit=20');
+        const response = await fetch('http://localhost:5000/recent-games?limit=21');
         const data = await response.json();
         setGames(data);
       } catch (error) {
@@ -22,7 +22,7 @@ const GameGrid: React.FC = () => {
   }, []);
 
   return (
-    <div className="game-grid">
+    <div className="game-grid text-white">
       {games.length === 0 ? (
         <p>Loading games...</p>
       ) : (

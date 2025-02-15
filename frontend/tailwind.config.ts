@@ -11,6 +11,10 @@ export default {
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
+        // Custom colors
+        'dark-bg': '#1A1A1A',
+        'grid-top':'#242424',
+        'border-color':'#3D3D3D',
       },
     },
   },

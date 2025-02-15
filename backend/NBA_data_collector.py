@@ -11,7 +11,8 @@ import time
 # How many threads to use when downloading individual game data from NBA API
 NUM_THREADS = 2 # If put above 4 way more likely for threads to timeout
 # Max amount of times to retry download as sometimes they can timeout
-MAX_DOWNLOAD_ATTEMPTS = 10 # CANNOT set to -1 for infinite tries
+MAX_DOWNLOAD_ATTEMPTS = 10
+DELAY = 2000 # Delay in milliseconds
 # Used to prevent duplicate request of data from NBA API
 GAME_LOCK = Lock()
 GAME_PROCESSED = set()
@@ -92,7 +93,7 @@ def minute_sec_decompress(time_str):
     return f"{minutes} minutes {seconds} seconds"
 
 
-@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS)
+@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_fixed=DELAY)
 def get_save_advanced_box_score_data(game_id):
     try:
         b_score_data = adv_b_data.BoxScoreAdvancedV2(game_id=game_id)
@@ -112,7 +113,7 @@ def get_save_advanced_box_score_data(game_id):
         print(str(e) + " for " + str(game_id))
 
 
-@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS)
+@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_fixed=DELAY)
 def get_save_box_score_data(game_id):
     try:
         b_score_data = b_data.BoxScoreTraditionalV2(game_id=game_id)
@@ -157,7 +158,7 @@ def threaded_get_save_all_game_data(game_id, year):
         print(str(e) + " for " + str(game_id))
 
 
-@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS)
+@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_fixed=DELAY)
 def get_save_league_schedule_team_stats(year):
     """
 
@@ -197,9 +198,7 @@ def get_save_league_schedule_team_stats(year):
                      "HOME_TEAM_ID", "AWAY_TEAM_NAME", "AWAY_TEAM_ABBREVIATION", "AWAY_TEAM_ID", "WINNER","VIDEO_AVAILABLE"]
     league_data = league_data.reindex(columns=desired_order)
 
-    # Upload schedule and team data for season to database
-    db.upload_df_to_postgres(league_data, "schedule", True)
-    db.upload_df_to_postgres(team_data, "team_stats", False)
+
     return league_data, team_data
 
 
@@ -231,6 +230,9 @@ def check_save_missing_game_stats():
 def get_save_data_for_year(year):
     # Download schedule from NBA API
     schedule, team_data = get_save_league_schedule_team_stats(year)
+    # Upload schedule and team data for season to database
+    db.upload_df_to_postgres(schedule, "schedule", True)
+    db.upload_df_to_postgres(team_data, "team_stats", False)
 
     # Use schedule to get games
     game_ids = list(schedule["GAME_ID"])
@@ -249,7 +251,8 @@ def set_up_year_function():
     years = handle_year_input(year_input)
     for year in years:
         if dc.does_schedule_for_year_exist(year):
-            print(f"\nSchedule already exists for {year} checking if any missing games")
+            print(f"\nSchedule already exists for {year} checking if any new games for {year}")
+            #db.upload_new_part_df_to_postgres(team_stats, "team_stats", False)
             check_save_missing_game_stats()
         else:
             get_save_data_for_year(year)

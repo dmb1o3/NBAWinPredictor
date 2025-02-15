@@ -8,3 +8,5 @@ imblearn~=0.0
 psycopg2~=2.9.9
 SQLAlchemy~=2.0.35
 imbalanced-learn~=0.12.4
+flask
+flask_cors
