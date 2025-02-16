@@ -46,13 +46,36 @@ def get_box_score():
         cursor.execute(query, (game_ID,))
         box_score = cursor.fetchall()
 
+        # Query to player stats
+        query = """
+            SELECT *
+            FROM player_stats 
+            WHERE "GAME_ID" = %s;
+        """
+        cursor.execute(query, (game_ID,))
+        player_stats = cursor.fetchall()
+
+        # Converts from time stamp to a string
+        for player in player_stats:
+            # Extract the "MIN" value from the row
+            time_delta = player["MIN"]
+            # Calculate total seconds
+            total_seconds = int(time_delta.total_seconds())
+
+            # Convert to minutes and seconds
+            minutes = total_seconds // 60
+            seconds = total_seconds % 60
+
+            # Update the player's "MIN" value with the formatted time
+            player["MIN"] = f"{minutes:02}:{seconds:02}"
+
 
         # Close connection
         cursor.close()
         conn.close()
 
         # Return the results as JSON
-        return jsonify(game_info, box_score)
+        return jsonify(game_info, box_score, player_stats)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

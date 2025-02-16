@@ -9,7 +9,7 @@ import time
 
 
 # How many threads to use when downloading individual game data from NBA API
-NUM_THREADS = 2 # If put above 4 way more likely for threads to timeout
+NUM_THREADS = 4 # If put above 4 way more likely for threads to timeout
 # Max amount of times to retry download as sometimes they can timeout
 MAX_DOWNLOAD_ATTEMPTS = 10
 DELAY = 2000 # Delay in milliseconds
