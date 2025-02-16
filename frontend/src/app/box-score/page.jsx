@@ -251,6 +251,7 @@ export default function BoxScore() {
               </table>
             </div>
           </div>
+          @TODO Update to use all player stats and maybe convert to component since home and away player stats same
           <div className="text-2xl font-bold p-4 mx-auto w-max mt-8">
             <h2>{homeTeamStats.TEAM_NAME} Players</h2>
           </div>
@@ -292,32 +293,57 @@ export default function BoxScore() {
                     <th className="px-4 py-3 text-left text-white text-sm font-medium">
                       FT
                     </th>
+                    <th className="px-4 py-3 text-left text-white text-sm font-medium">
+                      +/-
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {homePlayerStats.map((player, index) => (
-                    <tr key={index} className="border-t border-t-border-color">
-                      <td className="px-4 py-2 text-white text-sm">
-                        {player.PLAYER_NAME}
-                      </td>
-                      <td className="px-4 py-2 text-sm">{player.MIN}</td>
-                      <td className="px-4 py-2 text-sm">{player.PTS}</td>
-                      <td className="px-4 py-2 text-sm">{player.REB}</td>
-                      <td className="px-4 py-2 text-sm">{player.AST}</td>
-                      <td className="px-4 py-2 text-sm">{player.STL}</td>
-                      <td className="px-4 py-2 text-sm">{player.BLK}</td>
-                      <td className="px-4 py-2 text-sm">{player.TOV}</td>
-                      <td className="px-4 py-2 text-sm">
-                        {player.FGM}-{player.FGA}
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        {player.FG3M}-{player.FG3A}
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        {player.FTM}-{player.FTA}
-                      </td>
-                    </tr>
-                  ))}
+                  {homePlayerStats
+                    .slice() // Create a copy of the array to avoid mutating the original
+                    .sort((a, b) => {
+                      // Convert MIN strings to total seconds for comparison
+                      const getSeconds = (timeStr) => {
+                        if (!timeStr) return 0;
+                        const [minutes, seconds] = timeStr
+                          .split(":")
+                          .map(Number);
+                        return minutes * 60 + seconds;
+                      };
+
+                      const aSeconds = getSeconds(a.MIN);
+                      const bSeconds = getSeconds(b.MIN);
+
+                      // Sort in descending order (most minutes first)
+                      return bSeconds - aSeconds;
+                    })
+                    .map((player, index) => (
+                      <tr
+                        key={index}
+                        className="border-t border-t-border-color"
+                      >
+                        <td className="px-4 py-2 text-white text-sm">
+                          {player.PLAYER_NAME}
+                        </td>
+                        <td className="px-4 py-2 text-sm">{player.MIN}</td>
+                        <td className="px-4 py-2 text-sm">{player.PTS}</td>
+                        <td className="px-4 py-2 text-sm">{player.REB}</td>
+                        <td className="px-4 py-2 text-sm">{player.AST}</td>
+                        <td className="px-4 py-2 text-sm">{player.STL}</td>
+                        <td className="px-4 py-2 text-sm">{player.BLK}</td>
+                        <td className="px-4 py-2 text-sm">{player.TOV}</td>
+                        <td className="px-4 py-2 text-sm">
+                          {player.FGM}-{player.FGA}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {player.FG3M}-{player.FG3A}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {player.FTM}-{player.FTA}
+                        </td>
+                        <td className="px-4 py-2 text-sm">{player.PLUS_MINUS}</td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -365,32 +391,58 @@ export default function BoxScore() {
                     <th className="px-4 py-3 text-left text-white text-sm font-medium">
                       FT
                     </th>
+                    <th className="px-4 py-3 text-left text-white text-sm font-medium">
+                      +/-
+                    </th>
+
                   </tr>
                 </thead>
                 <tbody>
-                  {awayPlayerStats.map((player, index) => (
-                    <tr key={index} className="border-t border-t-border-color">
-                      <td className="px-4 py-2 text-white text-sm">
-                        {player.PLAYER_NAME}
-                      </td>
-                      <td className="px-4 py-2 text-sm">{player.MIN}</td>
-                      <td className="px-4 py-2 text-sm">{player.PTS}</td>
-                      <td className="px-4 py-2 text-sm">{player.REB}</td>
-                      <td className="px-4 py-2 text-sm">{player.AST}</td>
-                      <td className="px-4 py-2 text-sm">{player.STL}</td>
-                      <td className="px-4 py-2 text-sm">{player.BLK}</td>
-                      <td className="px-4 py-2 text-sm">{player.TOV}</td>
-                      <td className="px-4 py-2 text-sm">
-                        {player.FGM}-{player.FGA}
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        {player.FG3M}-{player.FG3A}
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        {player.FTM}-{player.FTA}
-                      </td>
-                    </tr>
-                  ))}
+                  {awayPlayerStats
+                    .slice() // Create a copy of the array to avoid mutating the original
+                    .sort((a, b) => {
+                      // Convert MIN strings to total seconds for comparison
+                      const getSeconds = (timeStr) => {
+                        if (!timeStr) return 0;
+                        const [minutes, seconds] = timeStr
+                          .split(":")
+                          .map(Number);
+                        return minutes * 60 + seconds;
+                      };
+
+                      const aSeconds = getSeconds(a.MIN);
+                      const bSeconds = getSeconds(b.MIN);
+
+                      // Sort in descending order (most minutes first)
+                      return bSeconds - aSeconds;
+                    })
+                    .map((player, index) => (
+                      <tr
+                        key={index}
+                        className="border-t border-t-border-color"
+                      >
+                        <td className="px-4 py-2 text-white text-sm">
+                          {player.PLAYER_NAME}
+                        </td>
+                        <td className="px-4 py-2 text-sm">{player.MIN}</td>
+                        <td className="px-4 py-2 text-sm">{player.PTS}</td>
+                        <td className="px-4 py-2 text-sm">{player.REB}</td>
+                        <td className="px-4 py-2 text-sm">{player.AST}</td>
+                        <td className="px-4 py-2 text-sm">{player.STL}</td>
+                        <td className="px-4 py-2 text-sm">{player.BLK}</td>
+                        <td className="px-4 py-2 text-sm">{player.TOV}</td>
+                        <td className="px-4 py-2 text-sm">
+                          {player.FGM}-{player.FGA}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {player.FG3M}-{player.FG3A}
+                        </td>
+                        <td className="px-4 py-2 text-sm">
+                          {player.FTM}-{player.FTA}
+                        </td>
+                        <td className="px-4 py-2 text-sm">{player.PLUS_MINUS}</td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
