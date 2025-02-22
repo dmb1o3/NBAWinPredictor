@@ -32,7 +32,7 @@ const PlayerStatsTable = ({ teamName = '', playerStats = [] }) => {
   return (
     <div>
       <div className="text-2xl font-bold p-4 mx-auto w-max mt-8">
-        <h2>{teamName} Players</h2>
+        <h2>{teamName} Player Stats</h2>
       </div>
       <div className="px-4 py-3 max-w-[90%] mx-auto">
         <div className="overflow-x-auto rounded-xl border border-border-color bg-dark-bg">
