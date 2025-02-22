@@ -12,7 +12,7 @@ import time
 NUM_THREADS = 4 # If put above 4 way more likely for threads to timeout
 # Max amount of times to retry download as sometimes they can timeout
 MAX_DOWNLOAD_ATTEMPTS = 10
-DELAY = 2000 # Delay in milliseconds
+DELAY = 4000 # Delay in milliseconds
 # Used to prevent duplicate request of data from NBA API
 GAME_LOCK = Lock()
 GAME_PROCESSED = set()
