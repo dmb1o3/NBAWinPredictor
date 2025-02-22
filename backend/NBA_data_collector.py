@@ -160,9 +160,6 @@ def threaded_get_save_all_game_data(game_id, year):
 
 @retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_fixed=DELAY)
 def get_save_league_schedule_team_stats(year):
-    """
-
-    """
     team_stats_cols = ["GAME_ID", "TEAM_ID", "TEAM_NAME", "TEAM_ABBREVIATION", "MIN",
              "FGM", "FGA", "FG_PCT", "FG3M", "FG3A", "FG3_PCT", "FTM", "FTA",
              "FT_PCT", "OREB", "DREB","REB", "AST", "STL", "BLK", "TOV", "PF", "PTS", "PLUS_MINUS"]
@@ -263,8 +260,7 @@ def invalid_option(options_length):
 
 
 def menu_options():
-    # @TODO fix how minutes are stored for time stamps as they are being added as hours right now. Maybe make min sec cols
-    # @TODO fix how we check if we can not save year. If current year and more games are played since last saved. Will not save those games played
+    # @TODO fix how we check for missing game data. If current year and more games are played since last saved. Will not save those games played
     options = {
         '1': set_up_year_function,
         '2': check_save_missing_game_stats,
