@@ -14,15 +14,18 @@ With my best results coming from the 2020 to 2023 season of 65% accuracy with lo
 
 
 ## Overview
+Project is being updated to have a web interface to see model predictions, explore the stats and download them. 
+Depending on when you download and use the functionality will change. First make sure config.py in backend/SQL is set up
+then use NBA_data_collector.py to set up the postgres database and download data and then run models.py to set up what year to 
+run models on.
+
 
 ### NBA_data_collector.py
 This file is used to download data from NBA api and upload it to a running PostgresSQL server
 
-#### Downloading Data
-![Leauge Schedule Diagram.svg](README%20Diagrams%2FDownload%20Diagram.svg)
 
 #### Preparing Data
-![Preparing Data Diagram.svg](README%20Diagrams%2FPreparing%20Data%20Diagram.svg)
+![Preparing Data Diagram.svg](backend%2fREADME%20Diagrams%2FPreparing%20Data%20Diagram.svg)
 
 ### models.py
 This file contains the scikit learn models implemented with hyperparameter tuning. To change what years of data the 

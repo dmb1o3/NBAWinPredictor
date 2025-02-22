@@ -1,4 +1,4 @@
-import model_data_collector as dc
+import models.model_data_collector as mdc
 from sklearn.svm import SVC
 from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -412,9 +412,9 @@ def main():
 
     # Ask user what type of data from years they want to use
     options = {
-        '1': lambda: dc.get_averaged_team_stats(years_to_examine),
-        '2': lambda: dc.get_averaged_adv_team_stats(years_to_examine),
-        '3': lambda: dc.get_averaged_team_and_adv_team_stats(years_to_examine),
+        '1': lambda: mdc.get_averaged_team_stats(years_to_examine),
+        '2': lambda: mdc.get_averaged_adv_team_stats(years_to_examine),
+        '3': lambda: mdc.get_averaged_team_and_adv_team_stats(years_to_examine),
         'q': exit,
     }
     print("\nWhat type of data would you like to feed models?")
@@ -429,7 +429,7 @@ def main():
     if user_selection in options:
         x, y = options[user_selection]()
     else:
-        dc.invalid_option(len(options))
+        mdc.invalid_option(len(options))
 
     # Ask user how we should split data
     print("\nFor the seasons entered do you want randomly split data or go sequentially?")
