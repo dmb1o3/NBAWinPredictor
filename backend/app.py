@@ -1,4 +1,7 @@
 from flask import Flask, jsonify, request
+from pyexpat.errors import messages
+
+from SQL.db_manager import init_database
 from flask_cors import CORS
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -78,6 +81,22 @@ def get_box_score():
         return jsonify(game_info, box_score, player_stats)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# Define a route to set up database for first time user
+@app.route('/setup-database', methods=['POST'])
+def post_setup_database():
+    try:
+        init_database()
+        # Return the results as JSON
+        message = {
+            "status": "success",
+            "message": "Database initialized successfully",
+        }
+        return jsonify(message), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 
 
 # Define a route to get the most recent games

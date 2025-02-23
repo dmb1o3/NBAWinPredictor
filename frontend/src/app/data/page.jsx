@@ -69,6 +69,9 @@ const NBADataManager = () => {
     setIsLoading(false);
   };
 
+
+
+
   return (
       <div className="bg-dark-bg text-white min-h-screen">
           <Navbar/>
