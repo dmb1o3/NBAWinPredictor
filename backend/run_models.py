@@ -1,4 +1,4 @@
-import models.model_data_collector as mdc
+import backend.models.model_data_collector as mdc
 from sklearn.svm import SVC
 from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -391,7 +391,6 @@ def bet_on_home_team(results):
 
 def main():
     # @TODO Look into implementing validation set
-    # @TODO test out model using training data in order for certain years maybe 2020-2022 and testing data as 2023
     # Default years to use as data
     years_to_examine = ["2020", "2021", "2022", "2023"]
 

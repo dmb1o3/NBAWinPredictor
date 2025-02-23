@@ -96,6 +96,19 @@ def post_setup_database():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# Define a route to set up database for first time user
+@app.route('/check-missing-data', methods=['POST'])
+def post_setup_database():
+    try:
+        init_database()
+        # Return the results as JSON
+        message = {
+            "status": "success",
+            "message": "Database initialized successfully",
+        }
+        return jsonify(message), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 
