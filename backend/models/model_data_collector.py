@@ -5,35 +5,7 @@ from backend.SQL import SQL_data_collector
 from backend.SQL.SQL_data_collector import get_data_from_table, get_team_stats_by_year, get_team_in_year, get_adv_team_stats_by_year
 from backend.SQL.db_manager import run_sql_query, run_sql_query_params
 
-#@TODO add a function to make a B2B column give game ids and columns so it can be reused for team, player or other stats
 GAMES_BACK = 5
-
-
-
-def get_stats(stats_to_get, years, b2b=False, win_streak=False):
-    """
-    Function will return stats for
-
-    """
-    options = {
-        'Average Team Stats': lambda: get_averaged_team_stats(years),
-        'Averaged Advanced Team Stats': lambda: get_averaged_adv_team_stats(years),
-        'Averaged Team and Advanced Team Stats': lambda: get_averaged_team_and_adv_team_stats(years),
-    }
-
-
-
-    game_ids = stats["GAME_ID"]
-    # Add back to back column
-    if b2b:
-        b2b_cols = get_back_2_back(game_ids)
-        stats = stats.merge(b2b_cols, on='GAME_ID')
-    if win_streak:
-        win_streak_cols = get_win_streak(game_ids)
-        stats = stats.merge(win_streak_cols, on='GAME_ID')
-
-    return stats
-
 
 
 def dash_to_individual(years):
@@ -423,6 +395,31 @@ def get_win_streak(game_ids):
     return b2b_data
 
 
+def get_home_away_team_pts(game_ids):
+    """
+    Given a list of game_ids will return the home team points and away team points for all game_ids provided
+
+    """
+
+    query = """
+    SELECT
+        s."GAME_ID",
+        home."PTS" AS "HOME_TEAM_PTS",
+        away."PTS" as "AWAY_TEAM_PTS"
+    FROM schedule s
+    JOIN team_stats home
+        ON s."GAME_ID" = home."GAME_ID"
+        AND s."HOME_TEAM_ABBREVIATION" = home."TEAM_ABBREVIATION"
+    JOIN team_stats away
+        ON s."GAME_ID" = away."GAME_ID"
+        AND s."AWAY_TEAM_ABBREVIATION" = away."TEAM_ABBREVIATION"
+    WHERE s."GAME_ID" = ANY(%(game_ids)s)
+    ORDER BY s."GAME_DATE", s."GAME_ID"
+    """
+    points_data, cols = run_sql_query_params(query, {"game_ids":game_ids})
+    points_data = pandas.DataFrame(points_data, columns=cols)
+    return points_data
+
 
 def get_player_stats(year, player_id):
     query = """
@@ -431,9 +428,9 @@ def get_player_stats(year, player_id):
     join schedule s on ps."GAME_ID" = s."GAME_ID"
     WHERE ps."PLAYER_ID" = %(player_id)s
     AND RIGHT(s."SEASON_ID", 4) = %(year)s
-    ORDER BY s."GAME_DATE"
+    ORDER BY s."GAME_DATE", s."GAME_ID"
     """
     return run_sql_query_params(query, {"player_id":player_id, "year":year})
 
 if __name__ == "__main__":
-    print(get_back_2_back(["0020800022","0020800028", "0020800029"]))
+    print(get_home_away_team_pts(["0021800001","0021800002", "0021800003"]))
