@@ -98,7 +98,7 @@ def post_setup_database():
 
 # Define a route to set up database for first time user
 @app.route('/check-missing-data', methods=['POST'])
-def post_setup_database():
+def post_check_missing_data():
     try:
         init_database()
         # Return the results as JSON

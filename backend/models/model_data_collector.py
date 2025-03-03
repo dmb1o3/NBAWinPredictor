@@ -86,7 +86,7 @@ def make_opp_column_names(stats):
     return d
 
 
-def get_averaged_team_stats(years, keep_game_id=False):
+def get_averaged_team_stats(years, classification, keep_game_id=False):
     team_stats = {} # Key = Team Abbrev i.e LAC, Value = dataframe of stats
     stats = [""]
     # For each year get data for team and apply rolling average
@@ -136,10 +136,13 @@ def get_averaged_team_stats(years, keep_game_id=False):
 
     all_averaged_stats = all_averaged_stats.merge(home_team_win, on='GAME_ID')
     all_averaged_stats = all_averaged_stats[all_averaged_stats['TEAM_ABBREVIATION'] == all_averaged_stats['HOME_TEAM_ABBREVIATION']]
-
     # Convert winner to binary for if home team won
     all_averaged_stats = all_averaged_stats.rename(columns={'WINNER': 'HOME_TEAM_WON'})
     all_averaged_stats['HOME_TEAM_WON'] = (all_averaged_stats['TEAM_ABBREVIATION'] == all_averaged_stats['HOME_TEAM_WON']).astype(int)
+    if not classification:
+        # Get home away points
+        home_away_pts = get_home_away_team_pts(game_ids)
+        all_averaged_stats = all_averaged_stats.merge(home_away_pts, on="GAME_ID")
 
     drop_cols = ['HOME_TEAM_ABBREVIATION', "TEAM_NAME", "TEAM_NAME_OPP", "TEAM_ABBREVIATION",
                  "TEAM_ABBREVIATION_OPP"]
@@ -152,7 +155,10 @@ def get_averaged_team_stats(years, keep_game_id=False):
 
     # Reset indexes
     all_averaged_stats = all_averaged_stats.reset_index(drop=True)
-    return all_averaged_stats.drop(["HOME_TEAM_WON"], axis=1), all_averaged_stats["HOME_TEAM_WON"]
+    if classification:
+        return all_averaged_stats.drop(["HOME_TEAM_WON"], axis=1), all_averaged_stats["HOME_TEAM_WON"]
+    return (all_averaged_stats.drop(["HOME_TEAM_PTS", "AWAY_TEAM_PTS"], axis=1),
+            all_averaged_stats[["HOME_TEAM_PTS", "AWAY_TEAM_PTS"]])
 
 
 def get_averaged_adv_team_stats(years, keep_game_id=False):

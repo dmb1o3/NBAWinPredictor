@@ -4,7 +4,7 @@ from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression, RidgeClassifier
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, RandomForestRegressor
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import accuracy_score, mean_squared_error, classification_report
 from sklearn.preprocessing import StandardScaler
@@ -12,6 +12,7 @@ from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.feature_selection import SequentialFeatureSelector
 from backend.NBA_data_collector import handle_year_input
+import pandas as pd
 
 RANDOM_STATE = 100
 
@@ -204,6 +205,50 @@ def ridge_classification(x_train, x_test, y_train, y_test, sfs_settings, setting
     model = run_model(x_train, x_test, y_train, y_test, model, False, settings)
 
 
+def random_forest_regression(x_train, x_test, y_train, y_test, sfs_settings, settings):
+    # Set up param_grid for hyperparameter tuning
+    param_grid = {
+        'n_estimators': range(10, 50, 10),
+        'criterion': ["squared_error", "absolute_error", "friedman_mse"],  # Regression criteria
+        'max_depth': list(range(20, 180, 80)),
+        'max_features': ["sqrt", "log2"],
+        'min_samples_split': [2, 5, 10, 20],
+        'min_samples_leaf': [1, 4, 10, 20],
+        'bootstrap': [True, False]
+    }
+
+    print("\nRandomForestRegressor")
+
+    if sfs_settings["apply_sfs"]:
+        x_train, x_test = apply_sfs_model(RandomForestRegressor(), x_train, y_train, x_test, sfs_settings)
+
+    # Find best parameters for model
+    best_params = get_best_parameters(RandomForestRegressor(), param_grid, x_train, y_train)
+
+    model = RandomForestRegressor(
+        n_estimators=best_params['n_estimators'],
+        criterion=best_params['criterion'],
+        max_depth=best_params['max_depth'],
+        max_features=best_params['max_features'],
+        min_samples_split=best_params['min_samples_split'],
+        min_samples_leaf=best_params['min_samples_leaf'],
+        bootstrap=best_params['bootstrap']
+    )
+
+    # Train model on both outputs (home & away scores)
+    model.fit(x_train, y_train)
+    # Try predicting
+    y_pred = model.predict(x_test)
+
+    predictions_df = pd.DataFrame({
+        'Actual_HOME_TEAM_PTS': y_test['HOME_TEAM_PTS'],
+        'Predicted_HOME_TEAM_PTS': y_pred[:, 0],  # Predictions for HOME_TEAM_PTS
+        'Actual_AWAY_TEAM_PTS': y_test['AWAY_TEAM_PTS'],
+        'Predicted_AWAY_TEAM_PTS': y_pred[:, 1]  # Predictions for AWAY_TEAM_PTS
+    })
+
+    predictions_df.to_csv('random_forest_regerssion_predictions.csv', index=False)
+
 
 def random_forest(x_train, x_test, y_train, y_test, sfs_settings, settings):
     # Set up param_grid for hyperparameter tuning
@@ -389,46 +434,57 @@ def bet_on_home_team(results):
     return str(pct)
 
 
+def print_get_years_to_examine():
+    years_to_examine = input("What years would you like to examine? If multiple just type them with a space like "
+                                 "\"2020 2021 2022\" or use a dash like 2020-2022: ")
+    years_to_examine = handle_year_input(years_to_examine)
+
+    return years_to_examine
+
 def main():
     # @TODO Look into implementing validation set
-    # Default years to use as data
-    years_to_examine = ["2020", "2021", "2022", "2023"]
-
-    # Ask users what years to use for NBA data
-    print("Do you want to use current years or input new years? (Enter number of choice)")
-    print("Current years: " + str(years_to_examine))
-    print("1. Use current years")
-    print("2. Input new years")
-    user_answer = input("")
-    # If they would like to set their own change to desired years
-    if user_answer == "2":
-        years_to_examine = input("What years would you like to examine? If multiple just type them with a space like "
-                                 "\"2020 2021 2022\" ")
-        years_to_examine = handle_year_input(years_to_examine)
+    years_to_examine = print_get_years_to_examine()
 
     # Start setting up setings
     settings = "Done using data from " + str(years_to_examine)
 
     # Ask user what type of data from years they want to use
-    options = {
-        '1': lambda: mdc.get_averaged_team_stats(years_to_examine),
-        '2': lambda: mdc.get_averaged_adv_team_stats(years_to_examine),
-        '3': lambda: mdc.get_averaged_team_and_adv_team_stats(years_to_examine),
-        'q': exit,
-    }
     print("\nWhat type of data would you like to feed models?")
     print("1. Averaged team stats")
     print("2. Averaged advanced team stats ")
     print("3. Averaged team and advanced team stats")
     # Get users choice and lowercase it to make q/Q the same
-    user_selection = input("Enter number associated with choice (Enter q to exit): ")
+    user_selection = input("Enter number associated with choice (Enter q to exit): ").strip()
     user_selection = user_selection.lower()
 
+    # Ask user what type of models to run
+    print("\nSelect the type of model to run:")
+    print("1 - Classification: Predict if the home team wins or loses.")
+    print("2 - Regression: Estimate the final point difference and classify based on that.")
+
+    classification = input("Enter number associated with choice (Enter q to exit): ").strip()
+    classification = True if classification == "1" else False
+
+    options = {
+        '1': lambda: mdc.get_averaged_team_stats(years_to_examine, classification),
+        '2': lambda: mdc.get_averaged_adv_team_stats(years_to_examine, classification),
+        '3': lambda: mdc.get_averaged_team_and_adv_team_stats(years_to_examine, classification),
+        'q': exit,
+    }
     # Call menu option if valid if not let user know how to properly use menu
     if user_selection in options:
         x, y = options[user_selection]()
     else:
-        mdc.invalid_option(len(options))
+        exit()
+
+    if not classification:
+        # Extract home_team won so we can analyze results
+        home_team_won = x["HOME_TEAM_WON"]
+        # Drop it as non integer column
+        x = x.drop(["HOME_TEAM_WON"], axis=1)
+        print(x)
+        print(y)
+        print(home_team_won)
 
     # Ask user how we should split data
     print("\nFor the seasons entered do you want randomly split data or go sequentially?")
@@ -503,13 +559,16 @@ def main():
     print("\nIf you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))
 
     # Run models
-    logistic_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
-    ridge_classification(x_train, x_test, y_train, y_test, sfs_settings, settings)
-    random_forest(x_train, x_test, y_train, y_test, sfs_settings, settings)
-    gaussian_process_classifier(x_train, x_test, y_train, y_test, sfs_settings, settings)
-    knn(x_train, x_test, y_train, y_test, sfs_settings, settings)
-    gradient_boosting(x_train, x_test, y_train, y_test, sfs_settings, settings)
-    svc(x_train, x_test, y_train, y_test, sfs_settings, settings)
+    if classification:
+        logistic_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
+        ridge_classification(x_train, x_test, y_train, y_test, sfs_settings, settings)
+        random_forest(x_train, x_test, y_train, y_test, sfs_settings, settings)
+        gaussian_process_classifier(x_train, x_test, y_train, y_test, sfs_settings, settings)
+        knn(x_train, x_test, y_train, y_test, sfs_settings, settings)
+        gradient_boosting(x_train, x_test, y_train, y_test, sfs_settings, settings)
+        svc(x_train, x_test, y_train, y_test, sfs_settings, settings)
+    else:
+        random_forest_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
 
 
 if __name__ == "__main__":
