@@ -3,8 +3,9 @@ from sklearn.svm import SVC
 from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.naive_bayes import GaussianNB
-from sklearn.linear_model import LogisticRegression, RidgeClassifier
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, RandomForestRegressor
+from sklearn.linear_model import LogisticRegression, RidgeClassifier, Lasso
+from sklearn.ensemble import (RandomForestClassifier, GradientBoostingClassifier, RandomForestRegressor,
+                              GradientBoostingRegressor)
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.metrics import accuracy_score, mean_squared_error, classification_report
 from sklearn.preprocessing import StandardScaler
@@ -12,7 +13,9 @@ from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.feature_selection import SequentialFeatureSelector
 from backend.NBA_data_collector import handle_year_input
+from xgboost import XGBRegressor
 import pandas as pd
+
 
 RANDOM_STATE = 100
 
@@ -261,6 +264,112 @@ def random_forest_regression(x_train, x_test, y_train, y_test, sfs_settings, set
     })
 
     predictions_df.to_csv('random_forest_regerssion_predictions.csv', index=False)
+
+    check_regression_classification(predictions_df)
+
+
+def gradient_boosting_regression(x_train, x_test, y_train, y_test, sfs_settings, settings):
+    print("\nGradient Boosting Regressor")
+
+    param_grid = {
+        'n_estimators': [50, 100, 200],
+        'learning_rate': [0.01, 0.1, 0.2],
+        'max_depth': [3, 5, 7],
+        'subsample': [0.8, 1.0]
+    }
+
+    if sfs_settings["apply_sfs"]:
+        x_train, x_test = apply_sfs_model(GradientBoostingRegressor(), x_train, y_train, x_test, sfs_settings)
+
+    best_params = get_best_parameters(GradientBoostingRegressor(), param_grid, x_train, y_train)
+
+    model = GradientBoostingRegressor(
+        n_estimators=best_params['n_estimators'],
+        learning_rate=best_params['learning_rate'],
+        max_depth=best_params['max_depth'],
+        subsample=best_params['subsample']
+    )
+
+    model.fit(x_train, y_train)
+    y_pred = model.predict(x_test)
+
+    predictions_df = pd.DataFrame({
+        'Actual_HOME_TEAM_PTS': y_test['HOME_TEAM_PTS'],
+        'Predicted_HOME_TEAM_PTS': y_pred[:, 0],
+        'Actual_AWAY_TEAM_PTS': y_test['AWAY_TEAM_PTS'],
+        'Predicted_AWAY_TEAM_PTS': y_pred[:, 1]
+    })
+
+    predictions_df.to_csv('gradient_boosting_regression_predictions.csv', index=False)
+    check_regression_classification(predictions_df)
+
+
+def xgboost_regression(x_train, x_test, y_train, y_test, sfs_settings, settings):
+    print("\nXGBoost Regressor")
+
+    param_grid = {
+        'n_estimators': [50, 100, 200],
+        'learning_rate': [0.01, 0.1, 0.2],
+        'max_depth': [3, 5, 7],
+        'subsample': [0.8, 1.0]
+    }
+
+    if sfs_settings["apply_sfs"]:
+        x_train, x_test = apply_sfs_model(XGBRegressor(), x_train, y_train, x_test, sfs_settings)
+
+    best_params = get_best_parameters(XGBRegressor(), param_grid, x_train, y_train)
+
+    model = XGBRegressor(
+        n_estimators=best_params['n_estimators'],
+        learning_rate=best_params['learning_rate'],
+        max_depth=best_params['max_depth'],
+        subsample=best_params['subsample']
+    )
+
+    model.fit(x_train, y_train)
+    y_pred = model.predict(x_test)
+
+    predictions_df = pd.DataFrame({
+        'Actual_HOME_TEAM_PTS': y_test['HOME_TEAM_PTS'],
+        'Predicted_HOME_TEAM_PTS': y_pred[:, 0],
+        'Actual_AWAY_TEAM_PTS': y_test['AWAY_TEAM_PTS'],
+        'Predicted_AWAY_TEAM_PTS': y_pred[:, 1]
+    })
+
+    predictions_df.to_csv('xgboost_regression_predictions.csv', index=False)
+    check_regression_classification(predictions_df)
+
+
+def lasso_regression(x_train, x_test, y_train, y_test, sfs_settings, settings):
+    print("\nLasso Regression")
+
+    param_grid = {
+        'alpha': [0.01, 0.1, 1.0, 10],  # Regularization strength
+        'max_iter': [1000, 5000, 10000]  # Max iterations for convergence
+    }
+
+    if sfs_settings["apply_sfs"]:
+        x_train, x_test = apply_sfs_model(Lasso(), x_train, y_train, x_test, sfs_settings)
+
+    best_params = get_best_parameters(Lasso(), param_grid, x_train, y_train)
+
+    model = Lasso(
+        alpha=best_params['alpha'],
+        max_iter=best_params['max_iter']
+    )
+
+    model.fit(x_train, y_train)
+    y_pred = model.predict(x_test)
+
+    predictions_df = pd.DataFrame({
+        'Actual_HOME_TEAM_PTS': y_test['HOME_TEAM_PTS'],
+        'Predicted_HOME_TEAM_PTS': y_pred[:, 0],
+        'Actual_AWAY_TEAM_PTS': y_test['AWAY_TEAM_PTS'],
+        'Predicted_AWAY_TEAM_PTS': y_pred[:, 1]
+    })
+
+    predictions_df.to_csv('lasso_regression_predictions.csv', index=False)
+    check_regression_classification(predictions_df)
 
 
 def random_forest(x_train, x_test, y_train, y_test, sfs_settings, settings):
@@ -582,7 +691,11 @@ def main():
         gradient_boosting(x_train, x_test, y_train, y_test, sfs_settings, settings)
         svc(x_train, x_test, y_train, y_test, sfs_settings, settings)
     else:
+        xgboost_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
+        lasso_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
+        gradient_boosting_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
         random_forest_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
+
 
 
 if __name__ == "__main__":
