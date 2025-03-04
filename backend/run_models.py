@@ -22,6 +22,19 @@ RANDOM_STATE = 100
 #  TODO add way to save and compare model stats based on
 #  years used, settings for years and settings for model probably some type of chart
 
+def check_regression_classification(df):
+    # Determine actual and predicted winners
+    df["Actual_Winner"] = df.apply(
+        lambda row: "HOME" if row["Actual_HOME_TEAM_PTS"] > row["Actual_AWAY_TEAM_PTS"] else "AWAY", axis=1)
+    df["Predicted_Winner"] = df.apply(
+        lambda row: "HOME" if row["Predicted_HOME_TEAM_PTS"] > row["Predicted_AWAY_TEAM_PTS"] else "AWAY", axis=1)
+
+    # Compute accuracy of win prediction
+    df["Correct_Winner_Prediction"] = df["Actual_Winner"] == df["Predicted_Winner"]
+    win_accuracy = df["Correct_Winner_Prediction"].mean() * 100
+    print(win_accuracy)
+
+
 
 def apply_sfs_model(model, x_train, y_train, x_test, sfs_settings):
     """
@@ -208,7 +221,7 @@ def ridge_classification(x_train, x_test, y_train, y_test, sfs_settings, setting
 def random_forest_regression(x_train, x_test, y_train, y_test, sfs_settings, settings):
     # Set up param_grid for hyperparameter tuning
     param_grid = {
-        'n_estimators': range(10, 50, 10),
+        'n_estimators': range(10, 30, 10),
         'criterion': ["squared_error", "absolute_error", "friedman_mse"],  # Regression criteria
         'max_depth': list(range(20, 180, 80)),
         'max_features': ["sqrt", "log2"],
@@ -459,16 +472,16 @@ def main():
 
     # Ask user what type of models to run
     print("\nSelect the type of model to run:")
-    print("1 - Classification: Predict if the home team wins or loses.")
-    print("2 - Regression: Estimate the final point difference and classify based on that.")
+    print("1. Classification: Predict if the home team wins or loses.")
+    print("2. Regression: Estimate the final point difference and classify based on that.")
 
     classification = input("Enter number associated with choice (Enter q to exit): ").strip()
     classification = True if classification == "1" else False
 
     options = {
-        '1': lambda: mdc.get_averaged_team_stats(years_to_examine, classification),
-        '2': lambda: mdc.get_averaged_adv_team_stats(years_to_examine, classification),
-        '3': lambda: mdc.get_averaged_team_and_adv_team_stats(years_to_examine, classification),
+        '1': lambda: mdc.get_averaged_team_stats(years_to_examine, True),
+        '2': lambda: mdc.get_averaged_adv_team_stats(years_to_examine, True),
+        '3': lambda: mdc.get_averaged_team_and_adv_team_stats(years_to_examine, True),
         'q': exit,
     }
     # Call menu option if valid if not let user know how to properly use menu
@@ -477,14 +490,15 @@ def main():
     else:
         exit()
 
+    # If classification drop game_id
     if not classification:
-        # Extract home_team won so we can analyze results
-        home_team_won = x["HOME_TEAM_WON"]
-        # Drop it as non integer column
-        x = x.drop(["HOME_TEAM_WON"], axis=1)
-        print(x)
-        print(y)
-        print(home_team_won)
+        # Get home away points so with regression that is our y
+        y = mdc.get_home_away_team_pts(x["GAME_ID"].tolist())
+        # Merge to ensure that y is in same order as x
+        y = y.merge(x[["GAME_ID"]], on="GAME_ID", how="right")
+        y = y.drop(["GAME_ID"], axis=1)
+
+    x = x.drop(["GAME_ID"], axis=1)
 
     # Ask user how we should split data
     print("\nFor the seasons entered do you want randomly split data or go sequentially?")
