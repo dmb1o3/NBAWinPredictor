@@ -250,8 +250,45 @@ def get_averaged_team_and_adv_team_stats(years, keep_game_id=False):
 
     return merged_team_stats.drop(["HOME_TEAM_WON", "GAME_ID"], axis=1), merged_team_stats["HOME_TEAM_WON"]
 
+def clean_player_stats_apply_roll_avg_shift(player_stats, games_back):
+    """
+    Given a dictionary containing dataframes of player stats will go through each data frame, clean and prepare it for
+    model. Will also apply a rolling average and shift the stats back a game. This way if we use the stats for
+    predictive modeling we are using rolling average from previous games with the current game not included.
+    """
+    player_ids = list(player_stats.keys())
+    for player_id in player_ids:
+        # Make started column which when rolling average is applied will show percentage player started
+        player_stats[player_id]["STARTED"] = player_stats[player_id]['START_POSITION'].apply(lambda x: 1 if x != ' ' else 0)
 
-def get_averaged_player_stats(years, players_per_team=PLAYERS_PER_TEAM, keep_game_id=False):
+        # Convert minutes from time stamp to float
+        player_stats[player_id]['MIN'] = player_stats[player_id]['MIN'].dt.total_seconds() / 60
+
+        # Drop rows that are not useful for models
+        drop_cols = ["TEAM_ID", "TEAM_ABBREVIATION", "TEAM_CITY", "PLAYER_NAME", "NICKNAME", "COMMENT", "START_POSITION"]
+        player_stats[player_id] = player_stats[player_id].drop(drop_cols, axis=1)
+
+        # Apply rolling average to columns that can be averaged
+        non_rolling_cols = ["GAME_ID", "PLAYER_ID"]
+        rolling_cols = player_stats[player_id].select_dtypes(include=[float, int])
+        # GAME_ID is not float or int it's a string
+        rolling_cols.drop(columns=["PLAYER_ID"], inplace=True)
+        rolling_cols = rolling_cols.columns
+        # Apply shift for stats so for each GAME_ID contains data from games before
+        player_stats[player_id] = pd.concat([player_stats[player_id][non_rolling_cols],
+                                                  player_stats[player_id][rolling_cols].shift()], axis=1)
+        # Apply rolling average
+        player_stats[player_id] = pd.concat([player_stats[player_id][non_rolling_cols],
+                                                  player_stats[player_id][rolling_cols].rolling(games_back).mean()],
+                                                  axis=1)
+
+        # Drop columns with NA
+        player_stats[player_id] = player_stats[player_id].dropna()
+
+
+    return player_stats
+
+def get_averaged_player_stats(years, rolling_average=5, players_per_team=PLAYERS_PER_TEAM, keep_game_id=False):
     team_dataframes = {} # Key = Team Abbrev i.e LAC value = data frame of averaged player stats for whole team
     player_stats = {} # Key = Player id, Value = dataframe of average stats for one player
     # We loop on years as a team is not guaranteed to exist next season i.e seattle supersonics
@@ -263,7 +300,8 @@ def get_averaged_player_stats(years, players_per_team=PLAYERS_PER_TEAM, keep_gam
             team = team_tuple[0]
             # Get player stats for that year of all players on team
             player_stats = sdc.get_player_stats_year_team(year, team)
-            print(player_stats)
+            pd.set_option('display.max_columns', None)
+            player_stats = clean_player_stats_apply_roll_avg_shift(player_stats, rolling_average)
             exit()
             stats, column_names = sdc.get_adv_team_stats_by_year(year, team)
             stats_df = pd.DataFrame(stats, columns=column_names)
