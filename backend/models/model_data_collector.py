@@ -2,7 +2,7 @@ import pandas
 import pandas as pd
 from backend.SQL.config import PLAYERS_PER_TEAM
 from backend.SQL import SQL_data_collector
-from backend.SQL.SQL_data_collector import get_data_from_table, get_team_stats_by_year, get_team_in_year, get_adv_team_stats_by_year
+import backend.SQL.SQL_data_collector as sdc
 from backend.SQL.db_manager import run_sql_query, run_sql_query_params
 
 GAMES_BACK = 5
@@ -92,11 +92,11 @@ def get_averaged_team_stats(years, keep_game_id=False):
     # For each year get data for team and apply rolling average
     for year in years:
         # Get teams in a year
-        teams = list(get_team_in_year(year)[0]) # Other value in tuple is column name but don't need
+        teams = list(sdc.get_team_in_year(year)[0]) # Other value in tuple is column name but don't need
         for team_tuple in teams:
             team = team_tuple[0]
             # Get team stats for the year
-            stats, column_names = get_team_stats_by_year(year, team)
+            stats, column_names = sdc.get_team_stats_by_year(year, team)
             stats_df = pd.DataFrame(stats, columns=column_names)
             # Drop columns that cannot be translated to int or float. Drop GAME_ID since does not help predict
             dropped = ["GAME_ID", "TEAM_ID", "TEAM_NAME", "TEAM_ABBREVIATION"]
@@ -163,11 +163,11 @@ def get_averaged_adv_team_stats(years, keep_game_id=False):
     # For each year get data for team and apply rolling average
     for year in years:
         # Get teams in a year
-        teams = list(get_team_in_year(year)[0]) # Other value in tuple is column name but don't need
+        teams = list(sdc.get_team_in_year(year)[0]) # Other value in tuple is column name but don't need
         for team_tuple in teams:
             team = team_tuple[0]
             # Get team stats for the year
-            stats, column_names = get_adv_team_stats_by_year(year, team)
+            stats, column_names = sdc.get_adv_team_stats_by_year(year, team)
             stats_df = pd.DataFrame(stats, columns=column_names)
             # Drop columns that cannot be translated to int or float. Drop GAME_ID since does not help predict
             dropped = ["GAME_ID", "TEAM_ID", "TEAM_NAME", "TEAM_ABBREVIATION",  "TEAM_CITY", "MIN"]
@@ -252,16 +252,20 @@ def get_averaged_team_and_adv_team_stats(years, keep_game_id=False):
 
 
 def get_averaged_player_stats(years, players_per_team=PLAYERS_PER_TEAM, keep_game_id=False):
-    player_stats = {} # Key = Team Abbrev i.e LAC, Value = dataframe of stats
-    stats = [""]
-    # For each year get data for team and apply rolling average
+    team_dataframes = {} # Key = Team Abbrev i.e LAC value = data frame of averaged player stats for whole team
+    player_stats = {} # Key = Player id, Value = dataframe of average stats for one player
+    # We loop on years as a team is not guaranteed to exist next season i.e seattle supersonics
     for year in years:
-        # Get teams in a year
-        teams = list(get_team_in_year(year)[0]) # Other value in tuple is column name but don't need
+        # Get teams that played in the year
+        teams = list(sdc.get_team_in_year(year)[0]) # Other value in tuple is column name but don't need
+        # For each team collect average stats of players that year
         for team_tuple in teams:
             team = team_tuple[0]
-            # Get team stats for the year
-            stats, column_names = get_adv_team_stats_by_year(year, team)
+            # Get player stats for that year of all players on team
+            player_stats = sdc.get_player_stats_year_team(year, team)
+            print(player_stats)
+            exit()
+            stats, column_names = sdc.get_adv_team_stats_by_year(year, team)
             stats_df = pd.DataFrame(stats, columns=column_names)
             # Drop columns that cannot be translated to int or float. Drop GAME_ID since does not help predict
             dropped = ["GAME_ID", "TEAM_ID", "TEAM_NAME", "TEAM_ABBREVIATION",  "TEAM_CITY", "MIN"]

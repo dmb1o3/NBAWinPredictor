@@ -575,6 +575,7 @@ def main():
     print("1. Averaged team stats")
     print("2. Averaged advanced team stats ")
     print("3. Averaged team and advanced team stats")
+    print("4. Averaged Player Stats")
     # Get users choice and lowercase it to make q/Q the same
     user_selection = input("Enter number associated with choice (Enter q to exit): ").strip()
     user_selection = user_selection.lower()
@@ -591,6 +592,7 @@ def main():
         '1': lambda: mdc.get_averaged_team_stats(years_to_examine, True),
         '2': lambda: mdc.get_averaged_adv_team_stats(years_to_examine, True),
         '3': lambda: mdc.get_averaged_team_and_adv_team_stats(years_to_examine, True),
+        '4': lambda: mdc.get_averaged_player_stats(years_to_examine, keep_game_id=True),
         'q': exit,
     }
     # Call menu option if valid if not let user know how to properly use menu
@@ -691,10 +693,11 @@ def main():
         gradient_boosting(x_train, x_test, y_train, y_test, sfs_settings, settings)
         svc(x_train, x_test, y_train, y_test, sfs_settings, settings)
     else:
-        xgboost_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
-        lasso_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
-        gradient_boosting_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
+        #gradient_boosting_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
         random_forest_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
+        xgboost_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
+        #lasso_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
+
 
 
 

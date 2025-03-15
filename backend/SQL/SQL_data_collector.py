@@ -1,4 +1,5 @@
 from backend.SQL import db_manager as db
+import pandas as pd
 # @TODO Think about combining with db manager. Might make sense logically
 
 def does_schedule_for_year_exist(year):
@@ -134,3 +135,34 @@ def get_data_from_table(return_column_names, table_name, col_conditions):
 
     return db.run_sql_query_params(query, col_conditions)
 
+
+def get_player_stats_year_team(year, team):
+    """
+    Given a year and team will return a dictionary of dataframes with all player stats for players that
+    played on team that year. Will include stats from players on another team if they happened to get traded mid-season.
+
+    year: Year to get player stats for
+    team: Abbreviation of team i.e LAC for
+    return: Dictionary Key = player id and value = dataframe of playerstats
+    """
+    year = "2" + year # Years are stored with a 2 in front for season id so 2023 is 22023
+    query = f"""
+    SELECT ps.*
+    FROM public.player_stats ps
+    -- JOIN so we have season id to know what year 
+    JOIN schedule s on ps."GAME_ID" = s."GAME_ID"
+    WHERE s."SEASON_ID" = '{year}'
+    AND ps."PLAYER_ID" in (
+	    SELECT DISTINCT ps2."PLAYER_ID"
+	    FROM public.player_stats ps2
+	    JOIN schedule s2 on s2."GAME_ID" = ps2."GAME_ID"
+	    WHERE s2."SEASON_ID" = '{year}'
+	    AND ps2."TEAM_ABBREVIATION" = '{team}'
+    )
+    ORDER BY s."GAME_DATE", "GAME_ID" ASC, "PLAYER_ID" ASC 
+    """
+
+    player_stats, column_names = db.run_sql_query(query)
+    player_stats = pd.DataFrame(player_stats, columns=column_names)
+    # Return dictionary of players tats
+    return {player_id: df_group for player_id, df_group in player_stats.groupby("PLAYER_ID")}
