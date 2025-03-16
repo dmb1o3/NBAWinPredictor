@@ -1,11 +1,48 @@
 import pandas
 import pandas as pd
-from backend.SQL.config import PLAYERS_PER_TEAM
 from backend.SQL import SQL_data_collector
 import backend.SQL.SQL_data_collector as sdc
 from backend.SQL.db_manager import run_sql_query, run_sql_query_params
 
 GAMES_BACK = 5
+
+
+def make_column_names(prefix, stats, players_per_team):
+    """
+    Given a list of stats will return a list of column names for those stats with the prefixed attached.
+    Prefix = "Player_", Stats = ["", "MIN", "PTS"], players_per_team = 2
+    output = [[PLAYER_1, PLAYER_1_MIN, PLAYER_1_PTS], [PLAYER_2, PLAYER_2_MIN, PLAYER_2_PTS]]
+
+    :param prefix: String with prefix for all column names
+    :param stats: List of strings with stats to use as column names after attaching a prefix
+    :param players_per_team: Number of columns to make
+    :return: 2d array with each index being a list of strings containing column names created for one player
+    """
+    d = []
+    for i in range(0, players_per_team):
+        column = []
+        for stat in stats:
+            column.append(prefix + str(i + 1) + "_" + stat)
+        d.append(column)
+
+    return d
+
+def set_up_columns(schedule, home_columns):
+    """
+    Given a schedule and the columns of stats we want for, the home team will make columns for said stats.
+    This is done so all dataframes for all years are made the same. Otherwise, if we process an away game first,
+    some years would have game info, away stats, home stats instead of the intended game stats, home stats, away stats
+
+    :param schedule: Dataframe with an NBA schedule
+    :param home_columns: 2d array with each array containing column names we want added
+    :return: Returns schedule with home_columns added
+    """
+    # Set up home columns first so they appear first
+    for player_column in home_columns:
+        for stat_colum in player_column:
+            schedule[stat_colum] = None
+
+    return schedule
 
 
 def dash_to_individual(years):
@@ -265,11 +302,11 @@ def clean_player_stats_apply_roll_avg_shift(player_stats, games_back):
         player_stats[player_id]['MIN'] = player_stats[player_id]['MIN'].dt.total_seconds() / 60
 
         # Drop rows that are not useful for models
-        drop_cols = ["TEAM_ID", "TEAM_ABBREVIATION", "TEAM_CITY", "PLAYER_NAME", "NICKNAME", "COMMENT", "START_POSITION"]
+        drop_cols = ["TEAM_CITY", "PLAYER_NAME", "NICKNAME", "COMMENT", "START_POSITION"]
         player_stats[player_id] = player_stats[player_id].drop(drop_cols, axis=1)
 
         # Apply rolling average to columns that can be averaged
-        non_rolling_cols = ["GAME_ID", "PLAYER_ID"]
+        non_rolling_cols = ["GAME_ID", "PLAYER_ID", "TEAM_ID", "TEAM_ABBREVIATION"]
         rolling_cols = player_stats[player_id].select_dtypes(include=[float, int])
         # GAME_ID is not float or int it's a string
         rolling_cols.drop(columns=["PLAYER_ID"], inplace=True)
@@ -285,14 +322,25 @@ def clean_player_stats_apply_roll_avg_shift(player_stats, games_back):
         # Drop columns with NA
         player_stats[player_id] = player_stats[player_id].dropna()
 
-
     return player_stats
 
-def get_averaged_player_stats(years, rolling_average=5, players_per_team=PLAYERS_PER_TEAM, keep_game_id=False):
-    team_dataframes = {} # Key = Team Abbrev i.e LAC value = data frame of averaged player stats for whole team
+def get_averaged_player_stats(years, rolling_average=5, players_per_team=3, keep_game_id=False):
+    schedule = None
     player_stats = {} # Key = Player id, Value = dataframe of average stats for one player
+
+    stats = ["PLAYER_ID", "STARTED", "MIN", "FGA", "FG_PCT", "FG3A", "FG3_PCT", "FTA", "FT_PCT", "OREB", "DREB", "AST",
+             "STL",
+             "BLK", "TOV", "PF", "PTS", "PLUS_MINUS"]
+    home_column_names = make_column_names("HOME_PLAYER_", stats, players_per_team)
+    away_column_names = make_column_names("AWAY_PLAYER_", stats, players_per_team)
     # We loop on years as a team is not guaranteed to exist next season i.e seattle supersonics
     for year in years:
+        # If stats is None set it to this years game_ids else append them
+        if schedule is None:
+            schedule = sdc.get_game_ids_home_away_team_ids(year)
+        else:
+            schedule = pd.concat([schedule, sdc.get_game_ids_home_away_team_ids(year)], ignore_index=True)
+
         # Get teams that played in the year
         teams = list(sdc.get_team_in_year(year)[0]) # Other value in tuple is column name but don't need
         # For each team collect average stats of players that year
@@ -302,66 +350,46 @@ def get_averaged_player_stats(years, rolling_average=5, players_per_team=PLAYERS
             player_stats = sdc.get_player_stats_year_team(year, team)
             pd.set_option('display.max_columns', None)
             player_stats = clean_player_stats_apply_roll_avg_shift(player_stats, rolling_average)
-            exit()
-            stats, column_names = sdc.get_adv_team_stats_by_year(year, team)
-            stats_df = pd.DataFrame(stats, columns=column_names)
-            # Drop columns that cannot be translated to int or float. Drop GAME_ID since does not help predict
-            dropped = ["GAME_ID", "TEAM_ID", "TEAM_NAME", "TEAM_ABBREVIATION",  "TEAM_CITY", "MIN"]
-            dropped_df = stats_df[dropped]
-            averaged_adv_team_stats = stats_df.drop(dropped, axis=1)
+            # Combine all player stats into a team df
+            team_df = pd.concat(player_stats.values(), ignore_index=True)
+            # Drop columns where player did was not on team
+            team_df = team_df[team_df["TEAM_ABBREVIATION"] == team]
+            team_df = team_df.sort_values(by=['GAME_ID', 'MIN'], ascending=[True, False])
+            team_id = team_df["TEAM_ID"].iloc[0]
+            # Add player data to the schedule
+            for game_id, game_df in team_df.groupby("GAME_ID"):
+                # Make sure we have enough players
+                if len(game_df) < players_per_team:
+                    print("Warning: Game {game_id} for team {team} has only {len(game_df)} players, need {players_per_team}. "
+                        f"Skipping this game.")
+                    continue
 
-            # Average stats
-            averaged_adv_team_stats = averaged_adv_team_stats.rolling(GAMES_BACK).mean()
-            # Shift values down 1 so that way we are not using stats from game played to predict game
-            averaged_adv_team_stats = pd.concat([dropped_df, averaged_adv_team_stats.shift()], axis=1)
-            # if team already has dataframe in team_stats dictionary append, if not add new key
-            if team in player_stats:
-                player_stats[team] = pd.concat([player_stats[team], averaged_adv_team_stats], ignore_index=True)
-            else:
-                player_stats[team] = averaged_adv_team_stats
+                # Get top players by minutes played
+                top_players = game_df.nlargest(players_per_team, "MIN")
 
-    # Combine all team_data_frames
-    all_averaged_stats = pd.concat(player_stats.values(), ignore_index=True)
-    # Get rid of NA rows caused by rolling average
-    all_averaged_stats = all_averaged_stats.dropna()
-    # Combine rows in data frame so they contain opponent stats as well
-    all_averaged_stats = all_averaged_stats.merge(all_averaged_stats, on='GAME_ID', suffixes=('', '_OPP'))
-    # Clean duplicates
-    all_averaged_stats = all_averaged_stats[all_averaged_stats['TEAM_ABBREVIATION'] != all_averaged_stats['TEAM_ABBREVIATION_OPP']]
-    # Get unique game ids
-    game_ids = list(all_averaged_stats["GAME_ID"].unique())
-    # Get home team and winner for each game
-    # Rows from away teams perspective. If LAL vs LAC tonight 2 rows for game one from LAL and LAC perspective
-    # This will make it so we only have the home team perspective
-    query = f"""
-    SELECT "GAME_ID", "HOME_TEAM_ABBREVIATION", "WINNER"
-    FROM schedule
-    WHERE "GAME_ID" = ANY(%(game_ids)s)
-    """
-    home_team_win, cols = run_sql_query_params(query, {"game_ids":game_ids})
-    home_team_win = pandas.DataFrame(home_team_win, columns=cols)
+                # Get row index and prefix for this game
+                game_row = schedule[schedule["GAME_ID"] == game_id]
+                schedule_idx = game_row.index[0]
+                if game_row["HOME_TEAM_ID"].iloc[0] == team_id:
+                    column_set = home_column_names
+                else:
+                    column_set = away_column_names
 
-    all_averaged_stats = all_averaged_stats.merge(home_team_win, on='GAME_ID')
-    all_averaged_stats = all_averaged_stats[all_averaged_stats['TEAM_ABBREVIATION'] == all_averaged_stats['HOME_TEAM_ABBREVIATION']]
+                # Add player stats in bulk
+                for i, (_, player) in enumerate(top_players.iterrows()):
+                    schedule.loc[schedule_idx, column_set[i]] = player[stats].to_numpy()
 
-    # Convert winner to binary for if home team won
-    all_averaged_stats = all_averaged_stats.rename(columns={'WINNER': 'HOME_TEAM_WON'})
-    all_averaged_stats['HOME_TEAM_WON'] = (all_averaged_stats['TEAM_ABBREVIATION'] == all_averaged_stats['HOME_TEAM_WON']).astype(int)
-
-    drop_cols = ['HOME_TEAM_ABBREVIATION', "TEAM_NAME", "TEAM_NAME_OPP",
-                 "TEAM_ABBREVIATION", "TEAM_ABBREVIATION_OPP", "TEAM_CITY", "TEAM_CITY_OPP", "MIN", "MIN_OPP"]
+    # Drop rows with NA values either because in rolling average or not enough players
+    schedule = schedule.dropna()
 
     if not keep_game_id:
-        drop_cols.append('GAME_ID')
-
-    print(all_averaged_stats.to_string())
-    exit()
+        schedule = schedule.drop(["GAME_ID"], axis=1)
 
     # Drop rows we no longer need
-    all_averaged_stats = all_averaged_stats.drop(drop_cols, axis=1)
-
-    all_averaged_stats = all_averaged_stats.reset_index(drop=True)
-    return all_averaged_stats.drop(["HOME_TEAM_WON"], axis=1), all_averaged_stats["HOME_TEAM_WON"]
+    # Reset indexes since we dropped some rows
+    schedule = schedule.reset_index(drop=True)
+    schedule.to_csv('filename.csv', index=False)
+    return schedule
 
 
 def get_back_2_back(game_ids):

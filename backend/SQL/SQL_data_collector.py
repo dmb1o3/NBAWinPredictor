@@ -106,6 +106,21 @@ def get_team_stats_by_year(year, team_abbrev):
     return db.run_sql_query(query)
 
 
+def get_game_ids_home_away_team_ids(year):
+    year = "2" + year
+    query = f"""
+    SELECT "GAME_ID", "HOME_TEAM_ID", "AWAY_TEAM_ID"
+    FROM public.schedule
+    WHERE "SEASON_ID" = '{year}'
+    ORDER BY "GAME_DATE" ASC
+    """
+
+    x, column_names = db.run_sql_query(query)
+    x = pd.DataFrame(x, columns=column_names)
+
+    return x
+
+
 def get_data_from_table(return_column_names, table_name, col_conditions):
     """
     Will return rows from a single table that match conditions set in col_conditions
@@ -159,10 +174,11 @@ def get_player_stats_year_team(year, team):
 	    WHERE s2."SEASON_ID" = '{year}'
 	    AND ps2."TEAM_ABBREVIATION" = '{team}'
     )
-    ORDER BY s."GAME_DATE", "GAME_ID" ASC, "PLAYER_ID" ASC 
+    ORDER BY "GAME_ID" ASC, "PLAYER_ID" ASC 
     """
 
     player_stats, column_names = db.run_sql_query(query)
     player_stats = pd.DataFrame(player_stats, columns=column_names)
     # Return dictionary of players tats
     return {player_id: df_group for player_id, df_group in player_stats.groupby("PLAYER_ID")}
+
