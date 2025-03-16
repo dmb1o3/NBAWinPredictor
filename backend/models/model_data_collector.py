@@ -123,7 +123,7 @@ def make_opp_column_names(stats):
     return d
 
 
-def get_averaged_team_stats(years, keep_game_id=False):
+def get_averaged_team_stats(years, keep_game_id=True):
     team_stats = {} # Key = Team Abbrev i.e LAC, Value = dataframe of stats
     stats = [""]
     # For each year get data for team and apply rolling average
@@ -158,42 +158,28 @@ def get_averaged_team_stats(years, keep_game_id=False):
     all_averaged_stats = all_averaged_stats.merge(all_averaged_stats, on='GAME_ID', suffixes=('', '_OPP'))
     # Clean duplicates
     all_averaged_stats = all_averaged_stats[all_averaged_stats['TEAM_ABBREVIATION'] != all_averaged_stats['TEAM_ABBREVIATION_OPP']]
-    # Get unique game ids
+    # Get rid of away team perspective
     game_ids = list(all_averaged_stats["GAME_ID"].unique())
-    # Get home team and winner for each game
-    # Rows from away teams perspective. If LAL vs LAC tonight 2 rows for game one from LAL and LAC perspective
-    # This will make it so we only have the home team perspective
-    query = f"""
-    SELECT "GAME_ID", "HOME_TEAM_ABBREVIATION", "WINNER"
-    FROM schedule
-    WHERE "GAME_ID" = ANY(%(game_ids)s)
-    """
-    home_team_win, cols = run_sql_query_params(query, {"game_ids":game_ids})
-    home_team_win = pandas.DataFrame(home_team_win, columns=cols)
-
-    all_averaged_stats = all_averaged_stats.merge(home_team_win, on='GAME_ID')
+    home_team_abrev = sdc.get_home_team_abrev(game_ids)
+    all_averaged_stats = all_averaged_stats.merge(home_team_abrev, on="GAME_ID")
     all_averaged_stats = all_averaged_stats[all_averaged_stats['TEAM_ABBREVIATION'] == all_averaged_stats['HOME_TEAM_ABBREVIATION']]
-    # Convert winner to binary for if home team won
-    all_averaged_stats = all_averaged_stats.rename(columns={'WINNER': 'HOME_TEAM_WON'})
-    all_averaged_stats['HOME_TEAM_WON'] = (all_averaged_stats['TEAM_ABBREVIATION'] == all_averaged_stats['HOME_TEAM_WON']).astype(int)
 
-    drop_cols = ['HOME_TEAM_ABBREVIATION', "TEAM_NAME", "TEAM_NAME_OPP", "TEAM_ABBREVIATION",
-                 "TEAM_ABBREVIATION_OPP"]
-
-    if not keep_game_id:
-        drop_cols.append('GAME_ID')
 
     # Drop rows we no longer need
+    drop_cols = ["HOME_TEAM_ABBREVIATION", "TEAM_NAME", "TEAM_NAME_OPP", "TEAM_ABBREVIATION",
+                 "TEAM_ABBREVIATION_OPP"]
+    if not keep_game_id:
+        drop_cols.append('GAME_ID')
     all_averaged_stats = all_averaged_stats.drop(drop_cols, axis=1)
 
     # Reset indexes
     all_averaged_stats = all_averaged_stats.reset_index(drop=True)
+    all_averaged_stats.to_csv("filename.csv", index=False)
+    return all_averaged_stats
 
-    return all_averaged_stats.drop(["HOME_TEAM_WON"], axis=1), all_averaged_stats["HOME_TEAM_WON"]
 
 
-
-def get_averaged_adv_team_stats(years, keep_game_id=False):
+def get_averaged_adv_team_stats(years, keep_game_id=True):
     #@TODO fix to add minutes to final df when timestamp issue is fixed
     team_stats = {} # Key = Team Abbrev i.e LAC, Value = dataframe of stats
     stats = [""]
@@ -229,25 +215,11 @@ def get_averaged_adv_team_stats(years, keep_game_id=False):
     all_averaged_stats = all_averaged_stats.merge(all_averaged_stats, on='GAME_ID', suffixes=('', '_OPP'))
     # Clean duplicates
     all_averaged_stats = all_averaged_stats[all_averaged_stats['TEAM_ABBREVIATION'] != all_averaged_stats['TEAM_ABBREVIATION_OPP']]
-    # Get unique game ids
+    # Get rid of away team perspective
     game_ids = list(all_averaged_stats["GAME_ID"].unique())
-    # Get home team and winner for each game
-    # Rows from away teams perspective. If LAL vs LAC tonight 2 rows for game one from LAL and LAC perspective
-    # This will make it so we only have the home team perspective
-    query = f"""
-    SELECT "GAME_ID", "HOME_TEAM_ABBREVIATION", "WINNER"
-    FROM schedule
-    WHERE "GAME_ID" = ANY(%(game_ids)s)
-    """
-    home_team_win, cols = run_sql_query_params(query, {"game_ids":game_ids})
-    home_team_win = pandas.DataFrame(home_team_win, columns=cols)
-
-    all_averaged_stats = all_averaged_stats.merge(home_team_win, on='GAME_ID')
+    home_team_abrev = sdc.get_home_team_abrev(game_ids)
+    all_averaged_stats = all_averaged_stats.merge(home_team_abrev, on="GAME_ID")
     all_averaged_stats = all_averaged_stats[all_averaged_stats['TEAM_ABBREVIATION'] == all_averaged_stats['HOME_TEAM_ABBREVIATION']]
-
-    # Convert winner to binary for if home team won
-    all_averaged_stats = all_averaged_stats.rename(columns={'WINNER': 'HOME_TEAM_WON'})
-    all_averaged_stats['HOME_TEAM_WON'] = (all_averaged_stats['TEAM_ABBREVIATION'] == all_averaged_stats['HOME_TEAM_WON']).astype(int)
 
     drop_cols = ['HOME_TEAM_ABBREVIATION', "TEAM_NAME", "TEAM_NAME_OPP",
                  "TEAM_ABBREVIATION", "TEAM_ABBREVIATION_OPP", "TEAM_CITY", "TEAM_CITY_OPP", "MIN", "MIN_OPP"]
@@ -260,20 +232,19 @@ def get_averaged_adv_team_stats(years, keep_game_id=False):
     all_averaged_stats = all_averaged_stats.drop(drop_cols, axis=1)
 
     all_averaged_stats = all_averaged_stats.reset_index(drop=True)
-    return all_averaged_stats.drop(["HOME_TEAM_WON"], axis=1), all_averaged_stats["HOME_TEAM_WON"]
+    return all_averaged_stats
 
 
-def get_averaged_team_and_adv_team_stats(years, keep_game_id=False):
+def get_averaged_team_and_adv_team_stats(years, keep_game_id=True):
     # @TODO when timestamp issue is fixed make sure we don't double up on min from the two team tables
     # @TODO look into why adv_team_stats and team_stats are not same length
     # Get advanced team stats
-    adv_team_stats, winner = get_averaged_adv_team_stats(years, True)
+    adv_team_stats = get_averaged_adv_team_stats(years, True)
     # Get team stats
-    average_team_stats = get_averaged_team_stats(years, True)[0]
-    # Join winner back temporally to make sure it lines up
-    merged_team_stats = adv_team_stats.join(winner)
+    average_team_stats = get_averaged_team_stats(years, True)
+
     # Combine
-    merged_team_stats = merged_team_stats.merge(average_team_stats, on=["GAME_ID", "TEAM_ID", "TEAM_ID_OPP"])
+    merged_team_stats = adv_team_stats.merge(average_team_stats, on=["GAME_ID", "TEAM_ID", "TEAM_ID_OPP"])
 
     # Get game ids
     game_ids = list(merged_team_stats["GAME_ID"])
@@ -283,9 +254,9 @@ def get_averaged_team_and_adv_team_stats(years, keep_game_id=False):
     merged_team_stats.to_csv('test.csv', index=False)
 
     if keep_game_id:
-        return merged_team_stats.drop(["HOME_TEAM_WON"], axis=1), merged_team_stats["HOME_TEAM_WON"]
+        return merged_team_stats
 
-    return merged_team_stats.drop(["HOME_TEAM_WON", "GAME_ID"], axis=1), merged_team_stats["HOME_TEAM_WON"]
+    return merged_team_stats
 
 def clean_player_stats_apply_roll_avg_shift(player_stats, games_back):
     """
@@ -324,7 +295,7 @@ def clean_player_stats_apply_roll_avg_shift(player_stats, games_back):
 
     return player_stats
 
-def get_averaged_player_stats(years, rolling_average=5, players_per_team=3, keep_game_id=False):
+def get_averaged_player_stats(years, rolling_average=5, players_per_team=3, keep_game_id=True):
     schedule = None
     player_stats = {} # Key = Player id, Value = dataframe of average stats for one player
 
@@ -468,32 +439,6 @@ def get_win_streak(game_ids):
     return b2b_data
 
 
-def get_home_away_team_pts(game_ids):
-    """
-    Given a list of game_ids will return the home team points and away team points for all game_ids provided
-
-    """
-
-    query = """
-    SELECT
-        s."GAME_ID",
-        home."PTS" AS "HOME_TEAM_PTS",
-        away."PTS" as "AWAY_TEAM_PTS"
-    FROM schedule s
-    JOIN team_stats home
-        ON s."GAME_ID" = home."GAME_ID"
-        AND s."HOME_TEAM_ABBREVIATION" = home."TEAM_ABBREVIATION"
-    JOIN team_stats away
-        ON s."GAME_ID" = away."GAME_ID"
-        AND s."AWAY_TEAM_ABBREVIATION" = away."TEAM_ABBREVIATION"
-    WHERE s."GAME_ID" = ANY(%(game_ids)s)
-    ORDER BY s."GAME_DATE", s."GAME_ID"
-    """
-    points_data, cols = run_sql_query_params(query, {"game_ids":game_ids})
-    points_data = pandas.DataFrame(points_data, columns=cols)
-    return points_data
-
-
 def get_player_stats(year, player_id):
     query = """
     SELECT ps.* 
@@ -504,6 +449,3 @@ def get_player_stats(year, player_id):
     ORDER BY s."GAME_DATE", s."GAME_ID"
     """
     return run_sql_query_params(query, {"player_id":player_id, "year":year})
-
-if __name__ == "__main__":
-    print(get_home_away_team_pts(["0021800001","0021800002", "0021800003"]))

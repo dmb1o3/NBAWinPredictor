@@ -120,6 +120,52 @@ def get_game_ids_home_away_team_ids(year):
 
     return x
 
+def get_home_team_won(game_ids):
+    query = """
+    SELECT "GAME_ID", 
+    CASE
+	    WHEN "HOME_TEAM_ABBREVIATION" = "WINNER" THEN 1
+	    ELSE 0
+    END AS "HOME_TEAM_WON"
+    FROM schedule
+    WHERE "GAME_ID" = ANY(%(game_ids)s)
+    """
+    home_team_win, cols = db.run_sql_query_params(query, {"game_ids":game_ids})
+    home_team_win = pd.DataFrame(home_team_win, columns=cols)
+
+    return home_team_win
+
+
+def get_home_away_points(game_ids):
+    query = """
+    SELECT
+        s."GAME_ID",
+        home."PTS" AS "HOME_TEAM_PTS",
+        away."PTS" as "AWAY_TEAM_PTS"
+    FROM schedule s
+    JOIN team_stats home
+        ON s."GAME_ID" = home."GAME_ID"
+        AND s."HOME_TEAM_ABBREVIATION" = home."TEAM_ABBREVIATION"
+    JOIN team_stats away
+        ON s."GAME_ID" = away."GAME_ID"
+        AND s."AWAY_TEAM_ABBREVIATION" = away."TEAM_ABBREVIATION"
+    WHERE s."GAME_ID" = ANY(%(game_ids)s)
+    """
+    points_data, cols = db.run_sql_query_params(query, {"game_ids":game_ids})
+    points_data = pd.DataFrame(points_data, columns=cols)
+    return points_data
+
+
+def get_home_team_abrev(game_ids):
+    query = """
+    SELECT s."GAME_ID", s."HOME_TEAM_ABBREVIATION"
+    FROM schedule s
+    WHERE s."GAME_ID" = ANY(%(game_ids)s)
+    """
+    home_team_abrev, cols = db.run_sql_query_params(query, {"game_ids":game_ids})
+    home_team_abrev = pd.DataFrame(home_team_abrev, columns=cols)
+    return home_team_abrev
+
 
 def get_data_from_table(return_column_names, table_name, col_conditions):
     """

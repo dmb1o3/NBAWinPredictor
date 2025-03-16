@@ -15,6 +15,7 @@ from sklearn.feature_selection import SequentialFeatureSelector
 from backend.NBA_data_collector import handle_year_input
 from xgboost import XGBRegressor
 import pandas as pd
+import SQL.SQL_data_collector as sdc
 
 
 RANDOM_STATE = 100
@@ -580,6 +581,20 @@ def main():
     user_selection = input("Enter number associated with choice (Enter q to exit): ").strip()
     user_selection = user_selection.lower()
 
+    options = {
+        '1': lambda: mdc.get_averaged_team_stats(years_to_examine),
+        '2': lambda: mdc.get_averaged_adv_team_stats(years_to_examine),
+        '3': lambda: mdc.get_averaged_team_and_adv_team_stats(years_to_examine),
+        '4': lambda: mdc.get_averaged_player_stats(years_to_examine),
+        'q': exit,
+    }
+    # Call menu option if valid if not let user know how to properly use menu
+    if user_selection in options:
+        print("Gathering Data")
+        x = options[user_selection]()
+    else:
+        exit()
+
     # Ask user what type of models to run
     print("\nSelect the type of model to run:")
     print("1. Classification: Predict if the home team wins or loses.")
@@ -588,28 +603,23 @@ def main():
     classification = input("Enter number associated with choice (Enter q to exit): ").strip()
     classification = True if classification == "1" else False
 
-    options = {
-        '1': lambda: mdc.get_averaged_team_stats(years_to_examine, True),
-        '2': lambda: mdc.get_averaged_adv_team_stats(years_to_examine, True),
-        '3': lambda: mdc.get_averaged_team_and_adv_team_stats(years_to_examine, True),
-        '4': lambda: mdc.get_averaged_player_stats(years_to_examine, keep_game_id=True),
-        'q': exit,
-    }
-    # Call menu option if valid if not let user know how to properly use menu
-    if user_selection in options:
-        x, y = options[user_selection]()
+    if classification:
+        y = sdc.get_home_team_won(x["GAME_ID"].to_list())
     else:
-        exit()
+        y = sdc.get_home_away_points(x["GAME_ID"].to_list())
 
-    # If classification drop game_id
-    if not classification:
-        # Get home away points so with regression that is our y
-        y = mdc.get_home_away_team_pts(x["GAME_ID"].tolist())
-        # Merge to ensure that y is in same order as x
-        y = y.merge(x[["GAME_ID"]], on="GAME_ID", how="right")
-        y = y.drop(["GAME_ID"], axis=1)
+    # Ensure that the target is ordered same as data
+    ordered_game_ids = x['GAME_ID'].tolist()
+    game_id_to_index = {game_id: index for index, game_id in enumerate(ordered_game_ids)}
+    y['sort_order'] = y['GAME_ID'].map(game_id_to_index)
+    y = y.sort_values('sort_order').reset_index(drop=True)
+    y = y.drop(columns=['sort_order'])
+    # Verify the order matches
+    is_matched = (x['GAME_ID'] == y['GAME_ID']).all()
 
+    # Drop GAME_ID from data and target
     x = x.drop(["GAME_ID"], axis=1)
+    y = y.drop(["GAME_ID"], axis=1)
 
     # Ask user how we should split data
     print("\nFor the seasons entered do you want randomly split data or go sequentially?")
@@ -681,7 +691,8 @@ def main():
         settings += ", with SFS not applied"
 
     # Find out the baseline by calculating odds home team win
-    print("\nIf you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))
+    if classification:
+        print("\nIf you were to just bet on the home team over these seasons your accuracy would be " + bet_on_home_team(y))
 
     # Run models
     if classification:
@@ -697,8 +708,6 @@ def main():
         random_forest_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
         xgboost_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
         #lasso_regression(x_train, x_test, y_train, y_test, sfs_settings, settings)
-
-
 
 
 if __name__ == "__main__":
