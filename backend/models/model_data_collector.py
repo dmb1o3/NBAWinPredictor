@@ -297,8 +297,6 @@ def clean_player_stats_apply_roll_avg_shift(player_stats, games_back):
 
 def get_averaged_player_stats(years, rolling_average=5, players_per_team=3, keep_game_id=True):
     schedule = None
-    player_stats = {} # Key = Player id, Value = dataframe of average stats for one player
-
     stats = ["PLAYER_ID", "STARTED", "MIN", "FGA", "FG_PCT", "FG3A", "FG3_PCT", "FTA", "FT_PCT", "OREB", "DREB", "AST",
              "STL",
              "BLK", "TOV", "PF", "PTS", "PLUS_MINUS"]
@@ -306,6 +304,7 @@ def get_averaged_player_stats(years, rolling_average=5, players_per_team=3, keep
     away_column_names = make_column_names("AWAY_PLAYER_", stats, players_per_team)
     # We loop on years as a team is not guaranteed to exist next season i.e seattle supersonics
     for year in years:
+        print(f"Getting data for {year}")
         # If stats is None set it to this years game_ids else append them
         if schedule is None:
             schedule = sdc.get_game_ids_home_away_team_ids(year)
@@ -316,6 +315,7 @@ def get_averaged_player_stats(years, rolling_average=5, players_per_team=3, keep
         teams = list(sdc.get_team_in_year(year)[0]) # Other value in tuple is column name but don't need
         # For each team collect average stats of players that year
         for team_tuple in teams:
+            print(f"Getting data for {team}")
             team = team_tuple[0]
             # Get player stats for that year of all players on team
             player_stats = sdc.get_player_stats_year_team(year, team)
@@ -331,7 +331,7 @@ def get_averaged_player_stats(years, rolling_average=5, players_per_team=3, keep
             for game_id, game_df in team_df.groupby("GAME_ID"):
                 # Make sure we have enough players
                 if len(game_df) < players_per_team:
-                    print("Warning: Game {game_id} for team {team} has only {len(game_df)} players, need {players_per_team}. "
+                    print(f"Warning: Game {game_id} for team {team} has only {len(game_df)} players, need {players_per_team}. "
                         f"Skipping this game.")
                     continue
 
@@ -359,7 +359,7 @@ def get_averaged_player_stats(years, rolling_average=5, players_per_team=3, keep
     # Drop rows we no longer need
     # Reset indexes since we dropped some rows
     schedule = schedule.reset_index(drop=True)
-    schedule.to_csv('filename.csv', index=False)
+    schedule.to_csv('schedule.csv', index=False)
     return schedule
 
 

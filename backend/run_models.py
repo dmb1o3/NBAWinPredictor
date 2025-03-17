@@ -585,12 +585,11 @@ def main():
         '1': lambda: mdc.get_averaged_team_stats(years_to_examine),
         '2': lambda: mdc.get_averaged_adv_team_stats(years_to_examine),
         '3': lambda: mdc.get_averaged_team_and_adv_team_stats(years_to_examine),
-        '4': lambda: mdc.get_averaged_player_stats(years_to_examine),
+        '4': lambda: mdc.get_averaged_player_stats(years_to_examine, 5, 5),
         'q': exit,
     }
     # Call menu option if valid if not let user know how to properly use menu
     if user_selection in options:
-        print("Gathering Data")
         x = options[user_selection]()
     else:
         exit()
@@ -614,12 +613,14 @@ def main():
     y['sort_order'] = y['GAME_ID'].map(game_id_to_index)
     y = y.sort_values('sort_order').reset_index(drop=True)
     y = y.drop(columns=['sort_order'])
-    # Verify the order matches
-    is_matched = (x['GAME_ID'] == y['GAME_ID']).all()
 
     # Drop GAME_ID from data and target
     x = x.drop(["GAME_ID"], axis=1)
     y = y.drop(["GAME_ID"], axis=1)
+
+    if classification:
+        # Sci-kit learn models expect 1d array need to unravel for classification
+        y = y.values.ravel()
 
     # Ask user how we should split data
     print("\nFor the seasons entered do you want randomly split data or go sequentially?")
