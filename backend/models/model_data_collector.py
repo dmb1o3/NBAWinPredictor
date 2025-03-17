@@ -315,8 +315,8 @@ def get_averaged_player_stats(years, rolling_average=5, players_per_team=3, keep
         teams = list(sdc.get_team_in_year(year)[0]) # Other value in tuple is column name but don't need
         # For each team collect average stats of players that year
         for team_tuple in teams:
-            print(f"Getting data for {team}")
             team = team_tuple[0]
+            print(f"Getting data for {team}")
             # Get player stats for that year of all players on team
             player_stats = sdc.get_player_stats_year_team(year, team)
             pd.set_option('display.max_columns', None)
