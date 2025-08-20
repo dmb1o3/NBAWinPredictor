@@ -1,5 +1,5 @@
-from API import league_data as l_data, box_score_data as b_data, advanced_box_score_data as adv_b_data
-from concurrent.futures.thread import ThreadPoolExecutor
+from API import league_data as l_data, box_score_data as b_data, advanced_box_score_data as adv_b_data, box_score_summary_v2 as bss_data
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from SQL import db_manager as db, SQL_data_collector as dc
 from threading import Lock
 from retrying import retry
@@ -11,8 +11,8 @@ import time
 # How many threads to use when downloading individual game data from NBA API
 NUM_THREADS = 4 # If put above 4 way more likely for threads to timeout
 # Max amount of times to retry download as sometimes they can timeout
-MAX_DOWNLOAD_ATTEMPTS = 10
-DELAY = 4000 # Delay in milliseconds
+MAX_DOWNLOAD_ATTEMPTS = 4
+DELAY = 10000 # Delay in milliseconds
 # Used to prevent duplicate request of data from NBA API
 GAME_LOCK = Lock()
 GAME_PROCESSED = set()
@@ -110,7 +110,7 @@ def get_save_advanced_box_score_data(game_id):
         db.upload_df_to_postgres(player_data, "adv_player_stats", False)
         db.upload_df_to_postgres(team_data, "adv_team_stats", False)
     except Exception as e:
-        print(str(e) + " for " + str(game_id))
+        print(str(e) + " for " + str(game_id) + " in get_save_advanced_box_score_data()")
 
 
 @retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_fixed=DELAY)
@@ -126,7 +126,43 @@ def get_save_box_score_data(game_id):
         # Upload game stat to database
         db.upload_df_to_postgres(game_data, "player_stats", False)
     except Exception as e:
-        print(str(e) + " for " + str(game_id))
+        print(str(e) + " for " + str(game_id) + " in get_save_box_score_data()")
+
+@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_fixed=DELAY)
+def get_save_attendance_official_misc_team_data(game_id):
+    """
+    This will get and save attendance, refree and some miscelanous team stats data to database
+
+    """
+    try:
+        # Get data
+        bss_score_data = bss_data.BoxScoreSummaryV2(game_id=game_id)
+        bss_score_data = bss_score_data.get_data_frames()
+        # Combine team stats
+        hustle_stats = bss_score_data[1]
+        pts_per_qtr = bss_score_data[5]
+        misc_stats = pd.merge(hustle_stats, pts_per_qtr, on=["TEAM_ID"])
+        misc_stats["GAME_ID"] = game_id
+        misc_stats = misc_stats.drop(["GAME_DATE_EST", "GAME_SEQUENCE", "LEAGUE_ID", "PTS", "TEAM_NICKNAME",
+                                      "TEAM_CITY_NAME", "TEAM_ABBREVIATION_y", "TEAM_ABBREVIATION_x", "TEAM_CITY"], axis=1)
+        # Handle stats for referees
+        officials = bss_score_data[2]
+        officials["GAME_ID"] = game_id
+        # Handle Attendance
+        attendance = bss_score_data[4][["ATTENDANCE"]].copy() # Copy keeps as dataframe instead of slice
+        attendance["GAME_ID"] = game_id
+        # @TODO come back and look at think suppose to be series stats but weird
+        #print(bss_score_data[7].to_string())
+        # Upload data to database
+        print(officials)
+        print(misc_stats.to_string())
+        db.upload_df_to_postgres(officials, "officials", False)
+        db.upload_df_to_postgres(attendance, "attendance", False)
+        db.upload_df_to_postgres(misc_stats, "misc_team_stats", False)
+
+    except Exception as e:
+        print(str(e) + " for " + str(game_id) + " in get_save_attendance_official_misc_team_data()")
+
 
 
 def threaded_get_save_all_game_data(game_id, year):
@@ -150,12 +186,13 @@ def threaded_get_save_all_game_data(game_id, year):
 
         # Get Box Score data
         get_save_box_score_data(game_id)
+        get_save_attendance_official_misc_team_data(game_id)
         # Get advanced stats in testing prior to 1995 returns no data
         if int(year) > 1995:
             get_save_advanced_box_score_data(game_id)
 
     except Exception as e:
-        print(str(e) + " for " + str(game_id))
+        print(str(e) + " for " + str(game_id) + " in threaded_get_save_all_game_data")
 
 
 @retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_fixed=DELAY)
@@ -210,18 +247,32 @@ def check_save_missing_game_stats():
 
     :return: Nothing
     """
-    games_no_game_stats = dc.get_missing_game_data()[0] # Don't need col names so take first return value only
-    print("\nMissing game stats for " + str(len(games_no_game_stats)) + " games\n")
-    # Reset games processed for multiple runs without reset
-    # Hopefully doesn't happen but possible that it timeouts during redownload and user needs to run command again
-    # They may not reset program so we can just wipe the variable
-    global GAME_PROCESSED
-    GAME_PROCESSED = set()
+    games_no_game_stats = dc.get_missing_game_data() # Don't need col names so take first return value only
+    print("\nMissing player stats for " + str(len(games_no_game_stats["player_stats"])) + " games")
+    print("\nMissing advanced stats for " + str(len(games_no_game_stats["adv_stats"])) + " games")
+    print("\nMissing official attendance_misc_stats stats for " +
+          str(len(games_no_game_stats["official_attendance_misc_stats"])) + " games\n")
 
-    # @TODO Update so we don't ping nba API more then needed. Unlikely but if advanced stats fail to upload but player
-    # stats do we will still ping api for game stats and advanced stats instead of just advanced stats
+
+    functions_and_data = [
+        (get_save_box_score_data, games_no_game_stats["player_stats"]),
+        (get_save_advanced_box_score_data, games_no_game_stats["adv_stats"]),
+        (get_save_attendance_official_misc_team_data, games_no_game_stats["official_attendance_misc_stats"])
+    ]
+
+    print(games_no_game_stats["player_stats"])
+
     with ThreadPoolExecutor(max_workers=NUM_THREADS) as executor:
-        executor.map(lambda game:threaded_get_save_all_game_data(game[0], game[1]), games_no_game_stats)
+        futures = []
+        for func, lst in functions_and_data:
+            for item in lst:
+                futures.append(executor.submit(func, item[0]))
+
+        for future in as_completed(futures):
+            try:
+                result = future.result()
+            except Exception as e:
+                print(f"Task failed: {e}")
 
 
 def get_save_data_for_year(year):
@@ -288,5 +339,7 @@ def menu_options():
         print("")
 
 
+
 if __name__ == "__main__":
+    #get_save_attendance_official_misc_team_data("0020000001")
     menu_options()
