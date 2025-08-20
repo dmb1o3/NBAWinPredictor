@@ -17,27 +17,59 @@ def does_schedule_for_year_exist(year):
 
 
 def get_missing_game_data():
+    results = {}
     # Query to get game ids and season ids for all game stats missing from schedules in schedule table
     query = """
-    SELECT DISTINCT "GAME_ID", RIGHT("SEASON_ID",4)
+    SELECT DISTINCT "GAME_ID"
     FROM schedule s
     WHERE NOT EXISTS (
         SELECT 1
         FROM player_stats ps
         WHERE s."GAME_ID" = ps."GAME_ID"
-    )
-    OR NOT EXISTS (
-    SELECT 1
-    FROM adv_player_stats aps
-    WHERE s."GAME_ID" = aps."GAME_ID"
-    )
-    OR NOT EXISTS (
-    SELECT 1
-    FROM adv_team_stats ats
-    WHERE s."GAME_ID" = ats."GAME_ID"
     );
     """
-    return db.run_sql_query(query)
+    results["player_stats"]  = db.run_sql_query(query)[0]
+
+    query = """
+    SELECT DISTINCT "GAME_ID"
+    FROM schedule s
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM adv_player_stats aps
+        WHERE s."GAME_ID" = aps."GAME_ID"
+    )
+    OR NOT EXISTS (
+        SELECT 1
+        FROM adv_team_stats ats
+        WHERE s."GAME_ID" = ats."GAME_ID"
+    );
+    """
+
+    results["adv_stats"] = db.run_sql_query(query)[0]
+
+    query = """
+        SELECT DISTINCT "GAME_ID"
+        FROM schedule s
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM attendance a
+            WHERE s."GAME_ID" = a."GAME_ID"
+        )
+        OR NOT EXISTS (
+            SELECT 1
+            FROM officials o
+            WHERE s."GAME_ID" = o."GAME_ID"
+        )
+        OR NOT EXISTS (
+            SELECT 1
+            FROM misc_team_stats mts
+            WHERE s."GAME_ID" = mts."GAME_ID"
+        );
+        """
+
+    results["official_attendance_misc_stats"] = db.run_sql_query(query)[0]
+
+    return results
 
 
 def where_builder(table_abbrev, col_conditions):

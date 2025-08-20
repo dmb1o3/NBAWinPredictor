@@ -163,3 +163,61 @@ CREATE TABLE adv_player_stats (
     FOREIGN KEY ("GAME_ID") REFERENCES schedule("GAME_ID")
 );
 """
+
+officials_table = """
+CREATE TABLE officials (
+    "GAME_ID" char(10),
+    "OFFICIAL_ID" varchar(50),
+    "FIRST_NAME" varchar(50),
+    "LAST_NAME" varchar(50),
+    "JERSEY_NUM" varchar(50),
+    
+    PRIMARY KEY ("GAME_ID", "OFFICIAL_ID"),
+    FOREIGN KEY ("GAME_ID") REFERENCES schedule("GAME_ID")
+);
+"""
+
+attendance_table = """
+CREATE TABLE attendance (
+    "GAME_ID" char(10),
+    "ATTENDANCE" int,
+
+    PRIMARY KEY ("GAME_ID"),
+    FOREIGN KEY ("GAME_ID") REFERENCES schedule("GAME_ID")
+);
+"""
+
+misc_team_stats_table = """
+CREATE TABLE misc_team_stats (
+    "GAME_ID" char(10),
+    "TEAM_ID" char(10),
+    "PTS_PAINT" int,
+    "PTS_2ND_CHANCE" int,
+    "PTS_FB" int,
+    "LARGEST_LEAD" int,
+    "LEAD_CHANGES" int,
+    "TIMES_TIED" int,
+    "TEAM_TURNOVERS" int,
+    "TOTAL_TURNOVERS" int,
+    "TEAM_REBOUNDS" int,
+    "PTS_OFF_TO" int,
+    "TEAM_WINS_LOSSES" varchar(50),
+    "PTS_QTR1" int,
+    "PTS_QTR2" int,
+    "PTS_QTR3" int,
+    "PTS_QTR4" int,
+    "PTS_OT1" int,
+    "PTS_OT2" int,
+    "PTS_OT3" int,
+    "PTS_OT4" int,
+    "PTS_OT5" int,
+    "PTS_OT6" int,
+    "PTS_OT7" int,
+    "PTS_OT8" int,
+    "PTS_OT9" int,
+    "PTS_OT10" int,    
+        
+    PRIMARY KEY ("GAME_ID", "TEAM_ID"),
+    FOREIGN KEY ("GAME_ID") REFERENCES schedule("GAME_ID")
+);
+"""

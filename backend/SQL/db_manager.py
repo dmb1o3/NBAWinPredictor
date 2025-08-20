@@ -1,5 +1,6 @@
 from .config import config_params, conn_string, config_params_no_db
-from .tables import team_stats_table, adv_team_stats_table, player_stats_table, adv_player_stats_table,  schedule_table
+from .tables import team_stats_table, adv_team_stats_table, player_stats_table, adv_player_stats_table, schedule_table, \
+    officials_table, attendance_table, misc_team_stats_table
 from sqlalchemy import create_engine
 import psycopg2
 
@@ -138,3 +139,6 @@ def init_database():
     create_table(adv_team_stats_table, "adv_team_stats_table")
     create_table(player_stats_table, "player_stats")
     create_table(adv_player_stats_table, "adv_player_stats_table")
+    create_table(officials_table, "officials")
+    create_table(attendance_table, "attendance")
+    create_table(misc_team_stats_table, "misc_team_stats")
