@@ -1,4 +1,4 @@
-import backend.models.model_data_collector as mdc
+import models.model_data_collector as mdc
 from sklearn.svm import SVC
 from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.neighbors import KNeighborsClassifier
@@ -12,7 +12,7 @@ from sklearn.preprocessing import StandardScaler
 from imblearn.over_sampling import RandomOverSampler
 from imblearn.under_sampling import RandomUnderSampler
 from sklearn.feature_selection import SequentialFeatureSelector
-from backend.NBA_data_collector import handle_year_input
+from NBA_data_collector import handle_year_input
 from xgboost import XGBRegressor
 import pandas as pd
 import SQL.SQL_data_collector as sdc

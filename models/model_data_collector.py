@@ -1,8 +1,7 @@
 import pandas
 import pandas as pd
-from backend.SQL import SQL_data_collector
-import backend.SQL.SQL_data_collector as sdc
-from backend.SQL.db_manager import run_sql_query, run_sql_query_params
+import SQL.SQL_data_collector as sdc
+from SQL.db_manager import run_sql_query_params
 
 GAMES_BACK = 5
 

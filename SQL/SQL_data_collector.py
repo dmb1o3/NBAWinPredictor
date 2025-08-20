@@ -1,4 +1,4 @@
-from backend.SQL import db_manager as db
+from SQL import db_manager as db
 import pandas as pd
 # @TODO Think about combining with db manager. Might make sense logically
 

@@ -11,8 +11,8 @@ import time
 # How many threads to use when downloading individual game data from NBA API
 NUM_THREADS = 4 # If put above 4 way more likely for threads to timeout
 # Max amount of times to retry download as sometimes they can timeout
-MAX_DOWNLOAD_ATTEMPTS = 4
-DELAY = 10000 # Delay in milliseconds
+MAX_DOWNLOAD_ATTEMPTS = 3
+DELAY = 3000 # Delay in milliseconds
 # Used to prevent duplicate request of data from NBA API
 GAME_LOCK = Lock()
 GAME_PROCESSED = set()
@@ -154,8 +154,6 @@ def get_save_attendance_official_misc_team_data(game_id):
         # @TODO come back and look at think suppose to be series stats but weird
         #print(bss_score_data[7].to_string())
         # Upload data to database
-        print(officials)
-        print(misc_stats.to_string())
         db.upload_df_to_postgres(officials, "officials", False)
         db.upload_df_to_postgres(attendance, "attendance", False)
         db.upload_df_to_postgres(misc_stats, "misc_team_stats", False)
