@@ -10,9 +10,15 @@ import time
 
 # How many threads to use when downloading individual game data from NBA API
 NUM_THREADS = 4 # If put above 4 way more likely for threads to timeout
-# Max amount of times to retry download as sometimes they can timeout
-MAX_DOWNLOAD_ATTEMPTS = 3
-DELAY = 3000 # Delay in milliseconds
+# Max amount of times to retry download
+MAX_DOWNLOAD_ATTEMPTS = 5
+# Max amount of time a thread will wait
+WAIT_MAX = 30000 # In milliseconds
+# If at 1000 1s, 2s, 4s, 8s ...
+WAIT_MULTIPLIER = 1000 # In milliseconds
+DELAY = 5000 # In milliseconds
+# Max jitter
+MAX_JITTER = 2000 # In milliseconds
 # Used to prevent duplicate request of data from NBA API
 GAME_LOCK = Lock()
 GAME_PROCESSED = set()
@@ -93,7 +99,8 @@ def minute_sec_decompress(time_str):
     return f"{minutes} minutes {seconds} seconds"
 
 
-@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_fixed=DELAY)
+@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_exponential_multiplier=WAIT_MULTIPLIER,
+       wait_exponential_max=WAIT_MAX, wait_jitter_max=MAX_JITTER)
 def get_save_advanced_box_score_data(game_id):
     try:
         b_score_data = adv_b_data.BoxScoreAdvancedV2(game_id=game_id)
@@ -111,9 +118,11 @@ def get_save_advanced_box_score_data(game_id):
         db.upload_df_to_postgres(team_data, "adv_team_stats", False)
     except Exception as e:
         print(str(e) + " for " + str(game_id) + " in get_save_advanced_box_score_data()")
+        raise
 
 
-@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_fixed=DELAY)
+@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_exponential_multiplier=WAIT_MULTIPLIER,
+       wait_exponential_max=WAIT_MAX, wait_jitter_max=MAX_JITTER)
 def get_save_box_score_data(game_id):
     try:
         b_score_data = b_data.BoxScoreTraditionalV2(game_id=game_id)
@@ -123,12 +132,15 @@ def get_save_box_score_data(game_id):
         game_data = game_data.fillna(0)  # Data uses none instead of 0
         game_data["MIN"] = game_data["MIN"].apply(minute_sec_decompress)
         game_data = game_data.rename(columns={"TO": "TOV"})
+        print(game_data)
         # Upload game stat to database
         db.upload_df_to_postgres(game_data, "player_stats", False)
     except Exception as e:
         print(str(e) + " for " + str(game_id) + " in get_save_box_score_data()")
+        raise
 
-@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_fixed=DELAY)
+@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_exponential_multiplier=WAIT_MULTIPLIER,
+       wait_exponential_max=WAIT_MAX, wait_jitter_max=MAX_JITTER)
 def get_save_attendance_official_misc_team_data(game_id):
     """
     This will get and save attendance, refree and some miscelanous team stats data to database
@@ -154,12 +166,16 @@ def get_save_attendance_official_misc_team_data(game_id):
         # @TODO come back and look at think suppose to be series stats but weird
         #print(bss_score_data[7].to_string())
         # Upload data to database
+        print(officials.to_string())
+        print(attendance.to_string())
+        print(misc_stats.to_string())
         db.upload_df_to_postgres(officials, "officials", False)
         db.upload_df_to_postgres(attendance, "attendance", False)
         db.upload_df_to_postgres(misc_stats, "misc_team_stats", False)
 
     except Exception as e:
         print(str(e) + " for " + str(game_id) + " in get_save_attendance_official_misc_team_data()")
+        raise
 
 
 
@@ -193,7 +209,8 @@ def threaded_get_save_all_game_data(game_id, year):
         print(str(e) + " for " + str(game_id) + " in threaded_get_save_all_game_data")
 
 
-@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_fixed=DELAY)
+@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_exponential_multiplier=WAIT_MULTIPLIER,
+       wait_exponential_max=WAIT_MAX, wait_jitter_max=MAX_JITTER)
 def get_save_league_schedule_team_stats(year):
     team_stats_cols = ["GAME_ID", "TEAM_ID", "TEAM_NAME", "TEAM_ABBREVIATION", "MIN",
              "FGM", "FGA", "FG_PCT", "FG3M", "FG3A", "FG3_PCT", "FTM", "FTA",
@@ -339,5 +356,6 @@ def menu_options():
 
 
 if __name__ == "__main__":
-    #get_save_attendance_official_misc_team_data("0020000001")
+    #get_save_box_score_data("0022401184")
+    #get_save_attendance_official_misc_team_data("0022401161")
     menu_options()

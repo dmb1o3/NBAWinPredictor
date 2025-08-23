@@ -14,9 +14,7 @@ With my best results coming from the 2020 to 2023 season of 65% accuracy with lo
 
 
 ## Overview
-Project is being updated to have a web interface to see model predictions, explore the stats and download them. 
-Depending on when you download and use the functionality will change. First make sure config.py in backend/SQL is set up
-then use NBA_data_collector.py to set up the postgres database and download data and then run models.py to set up what year to 
+First make sure config.py in backend/SQL is set up then use NBA_data_collector.py to set up the postgres database and download data and then run models.py to set up what year to 
 run models on.
 
 
@@ -25,7 +23,7 @@ This file is used to download data from NBA api and upload it to a running Postg
 
 
 #### Preparing Data
-![Preparing Data Diagram.svg](backend%2fREADME%20Diagrams%2FPreparing%20Data%20Diagram.svg)
+![Preparing Data Diagram.svg](%2fREADME%20Diagrams%2FPreparing%20Data%20Diagram.svg)
 
 ### models.py
 This file contains the scikit learn models implemented with hyperparameter tuning. To change what years of data the 
@@ -152,3 +150,32 @@ This program requires you have Microsoft C++ Build Tools installed
 6. Run command 3. Setup database
 7. Run command 1. Download data for an entire year and enter in desired seasons
 8. After running can do whatever you would like with data but if you want to test the models run models.py
+
+
+## Misc
+GameID Structure (10 digits)
+┌─────────────────────┐
+│ XX │ X │ XX │ XXXXX │
+└─────────────────────┘
+ ▲    ▲    ▲    ▲
+ │    │    │    │
+ │    │    │    └── Game Number (00001-99999)
+ │    │    │
+ │    │    └── Season (24 = 2024-25)
+ │    │
+ │    └── Season Type
+ │        1: Pre-Season
+ │        2: Regular Season
+ │        3: All-Star
+ │        4: Playoffs
+ │        5: Play-In
+ │        6: In-Season Tournament
+ │
+ └── League ID
+     00: National Basketball Association (NBA)
+     01: ABA
+     10: Women's National Basketball Association (WNBA)
+     15: NBA Summer League
+     20: NBA G League
+     12: NBA 2K League (E-Sports)
+     ??: Basketball Africa League (BAL)

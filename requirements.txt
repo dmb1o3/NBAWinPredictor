@@ -12,3 +12,4 @@ flask~=3.1.0
 flask_cors
 Flask-Cors~=5.0.0
 xgboost~=2.1.4
+requests~=2.32.3

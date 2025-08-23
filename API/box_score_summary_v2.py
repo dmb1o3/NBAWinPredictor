@@ -117,7 +117,7 @@ class BoxScoreSummaryV2(Endpoint):
     team_stats = None
     headers = None
 
-    def __init__(self, game_id, proxy=None, headers=None, timeout=120, get_request=True):
+    def __init__(self, game_id, proxy=None, headers=None, timeout=30, get_request=True):
         self.proxy = proxy
         if headers is not None:
             self.headers = headers

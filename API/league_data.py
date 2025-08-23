@@ -68,7 +68,7 @@ class LeagueGameLog(Endpoint):
         date_to_nullable="",
         proxy=None,
         headers=None,
-        timeout=120,
+        timeout=30,
         get_request=True,
     ):
         self.proxy = proxy

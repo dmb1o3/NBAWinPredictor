@@ -1,5 +1,6 @@
-from .config import config_params, conn_string, config_params_no_db
-from .tables import team_stats_table, adv_team_stats_table, player_stats_table, adv_player_stats_table, schedule_table, \
+#from config import config_params, conn_string, config_params_no_db
+from SQL.config import config_params, conn_string, config_params_no_db
+from SQL.tables import team_stats_table, adv_team_stats_table, player_stats_table, adv_player_stats_table, schedule_table, \
     officials_table, attendance_table, misc_team_stats_table
 from sqlalchemy import create_engine
 import psycopg2
@@ -63,12 +64,23 @@ def run_sql_query(query):
     columns = [desc[0] for desc in cursor.description]
     return rows, columns
 
+def delete_records(df, table_name):
+    ids = tuple(df['GAME_ID'])
+    ids_str = ', '.join(f"'{x}'" for x in ids)
+    query = f"DELETE FROM {table_name} WHERE \"GAME_ID\" IN ({ids_str})"
+    conn = connect_to_server(True)
+    cursor = conn.cursor()
+    cursor.execute(query, ids)
 
-def upload_df_to_postgres(df, table_name, prnt):
+
+def upload_df_to_postgres(df, table_name, prnt=False, overwrite=False):
     db = create_engine(conn_string)
     conn = db.connect()
 
     try:
+        if overwrite:
+            delete_records(df, table_name)
+
         df.to_sql(table_name, con=conn, if_exists="append", index=False)
         if prnt:
             print(f"\nDataframe uploaded successfully to {table_name} table")
