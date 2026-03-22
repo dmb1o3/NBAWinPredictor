@@ -25,7 +25,7 @@ def get_missing_game_data():
     WHERE NOT EXISTS (
         SELECT 1
         FROM player_stats ps
-        WHERE s."GAME_ID" = ps."GAME_ID"
+        WHERE s."GAME_ID" = ps."game_id"
     );
     """
     results["player_stats"]  = db.run_sql_query(query)[0]

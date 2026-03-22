@@ -50,6 +50,32 @@ CREATE TABLE team_stats (
 );
 """
 
+teams_starter_vs_bench_stats_table = """
+CREATE TABLE team_starter_vs_bench_stats (
+    "game_id" char(10),
+    "team_id" char(10),
+    "minutes" INTERVAL,
+    "field_goals_made" INT,
+    "field_goals_attempted" INT,
+    "three_pointers_made" INT,
+    "three_pointers_attempted" INT,
+    "free_throws_made" INT,
+    "free_throws_attempted" INT,
+    "offensive_rebounds" INT,
+    "defensive_rebounds" INT,
+    "assists" INT,
+    "steals" INT,
+    "blocks" INT,
+    "turnovers" INT,
+    "personal_fouls" INT,
+    "points" INT,
+    "starter_bench" VARCHAR(8),
+    
+    PRIMARY KEY ("game_id", "team_id", "starter_bench"),
+    FOREIGN KEY ("game_id") REFERENCES schedule("GAME_ID")
+);
+"""
+
 adv_team_stats_table = """
 CREATE TABLE adv_team_stats (
     "GAME_ID" char(10),
@@ -89,38 +115,30 @@ CREATE TABLE adv_team_stats (
 
 player_stats_table = """
 CREATE TABLE player_stats (
-    "GAME_ID" char(10),
-    "TEAM_ID" char(10),
-    "TEAM_ABBREVIATION" char(3),
-    "TEAM_CITY" varchar(50),
-    "PLAYER_ID" int,
-    "PLAYER_NAME" varchar(50),
-    "NICKNAME" varchar(50),
-    "START_POSITION" char(1),
-    "COMMENT" varchar(50),
-    "MIN" INTERVAL,
-    "FGM" int,
-    "FGA" int,
-    "FG_PCT" float,
-    "FG3M" int,
-    "FG3A" int,
-    "FG3_PCT" float,
-    "FTM" int,
-    "FTA" int,
-    "FT_PCT" float,
-    "OREB" int,
-    "DREB" int,
-    "REB" int,
-    "AST" int,
-    "STL" int,
-    "BLK" int,
-    "TOV" int,
-    "PF" int,
-    "PTS" int,
-    "PLUS_MINUS" int,
+    "game_id" char(10),
+    "team_id" char(10),
+    "player_id" int,
+    "starting_position" char(1),
+    "comment" varchar(50),
+    "minutes" INTERVAL,
+    "field_goals_made" int,
+    "field_goals_attempted" int,
+    "three_pointers_made" int,
+    "three_pointers_attempted" int,
+    "free_throws_made" int,
+    "free_throws_attempted" int,
+    "offensive_rebounds" INT,
+    "defensive_rebounds" INT,
+    "assists" INT,
+    "steals" INT,
+    "blocks" INT,
+    "turnovers" INT,
+    "personal_fouls" INT,
+    "points" INT,
+    "plus_minus" int,
 
-    PRIMARY KEY ("GAME_ID", "PLAYER_ID"),
-    FOREIGN KEY ("GAME_ID") REFERENCES schedule("GAME_ID")
+    PRIMARY KEY ("game_id", "player_id"),
+    FOREIGN KEY ("game_id") REFERENCES schedule("GAME_ID")
 );
 """
 

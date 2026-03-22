@@ -1,4 +1,5 @@
-from API import league_data as l_data, box_score_data as b_data, advanced_box_score_data as adv_b_data, box_score_summary_v2 as bss_data
+from nba_api.stats.endpoints import leaguegamelog, boxscoretraditionalv2, boxscoreadvancedv2, boxscoresummaryv2
+from nba_api.stats.endpoints.boxscoretraditionalv3 import BoxScoreTraditionalV3
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from SQL import db_manager as db, SQL_data_collector as dc
 from threading import Lock
@@ -6,10 +7,11 @@ from retrying import retry
 import pandas as pd
 import numpy as np
 import time
+import re
 
 
 # How many threads to use when downloading individual game data from NBA API
-NUM_THREADS = 4 # If put above 4 way more likely for threads to timeout
+NUM_THREADS = 3 # If put above 4 way more likely for threads to timeout
 # Max amount of times to retry download
 MAX_DOWNLOAD_ATTEMPTS = 5
 # Max amount of time a thread will wait
@@ -80,11 +82,23 @@ def handle_year_input(inputs):
 
     return years
 
+def api_column_rename(column_name):
+    """
+    Given a column name in camelCase will return in snake_case
+
+    """
+    # Insert underscore between lowercase/digit and uppercase letter
+    name = re.sub(r'([a-z0-9])([A-Z])', r'\1_\2', column_name)
+    return name.lower()
+
+def keep_columns(df, columns_to_keep):
+    return df[[col for col in columns_to_keep if col in df.columns]]
+
 
 def minute_sec_decompress(time_str):
     time_str = str(time_str)
-    if time_str == "0":
-        return time_str
+    if time_str == "":
+        return "0 minutes 00 seconds"
 
     minutes, seconds = time_str.split(':')
     # Get rid of excess ex 36 min is 36.00000
@@ -103,7 +117,7 @@ def minute_sec_decompress(time_str):
        wait_exponential_max=WAIT_MAX, wait_jitter_max=MAX_JITTER)
 def get_save_advanced_box_score_data(game_id):
     try:
-        b_score_data = adv_b_data.BoxScoreAdvancedV2(game_id=game_id)
+        b_score_data = boxscoreadvancedv2.BoxScoreAdvancedV2(game_id=game_id)
         player_data = b_score_data.get_data_frames()[0]
         team_data = b_score_data.get_data_frames()[1]
 
@@ -125,16 +139,43 @@ def get_save_advanced_box_score_data(game_id):
        wait_exponential_max=WAIT_MAX, wait_jitter_max=MAX_JITTER)
 def get_save_box_score_data(game_id):
     try:
-        b_score_data = b_data.BoxScoreTraditionalV2(game_id=game_id)
+        b_score_data = BoxScoreTraditionalV3(game_id=game_id)
         game_data = b_score_data.get_data_frames()[0]
+        teams_starter_vs_bench = b_score_data.get_data_frames()[1]
+
+        # Rename columns
+        game_data = game_data.rename(columns={"personId":"player_id", "position":"starting_position",
+                                              "reboundsOffensive":"offensive_rebounds", "reboundsDefensive":"defensive_rebounds",
+                                              "foulsPersonal":"personal_fouls"
+                                              })
+        game_data = game_data.rename(columns={col: api_column_rename(col) for col in game_data.columns})
+
+        teams_starter_vs_bench = teams_starter_vs_bench.rename(columns={"reboundsOffensive":"offensive_rebounds", "reboundsDefensive":"defensive_rebounds",
+                                                                        "foulsPersonal":"personal_fouls", "plusMinusPoints":"plus_minus", "startersBench":"starter_bench"
+                                              })
+        teams_starter_vs_bench = teams_starter_vs_bench.rename(columns={col: api_column_rename(col) for col in teams_starter_vs_bench.columns})
+
+
+        # Drop column we do not need
+        game_data = keep_columns(game_data, [ "game_id", "team_id", "player_id", "starting_position",
+                                                            "comment","minutes","field_goals_made","field_goals_attempted",
+                                                            "three_pointers_made","three_pointers_attempted", "free_throws_made",
+                                                            "free_throws_attempted","offensive_rebounds","defensive_rebounds",
+                                                            "assists","steals","blocks","turnovers","personal_fouls","points", "plus_minus"]
+                                 )
+
+        teams_starter_vs_bench = keep_columns(teams_starter_vs_bench, [
+                                                            "game_id", "team_id", "minutes","field_goals_made","field_goals_attempted",
+                                                            "three_pointers_made","three_pointers_attempted", "free_throws_made",
+                                                            "free_throws_attempted","offensive_rebounds","defensive_rebounds",
+                                                            "assists","steals","blocks","turnovers","personal_fouls","points", "starter_bench"]
+                                 )
 
         # Minutes are stored with seconds. 35 minutes 30 seconds is 35.0000:30
-        game_data = game_data.fillna(0)  # Data uses none instead of 0
-        game_data["MIN"] = game_data["MIN"].apply(minute_sec_decompress)
-        game_data = game_data.rename(columns={"TO": "TOV"})
-        print(game_data)
+        game_data["minutes"] = game_data["minutes"].apply(minute_sec_decompress)
         # Upload game stat to database
         db.upload_df_to_postgres(game_data, "player_stats", False)
+        db.upload_df_to_postgres(teams_starter_vs_bench, "team_starter_vs_bench_stats", False)
     except Exception as e:
         print(str(e) + " for " + str(game_id) + " in get_save_box_score_data()")
         raise
@@ -148,7 +189,7 @@ def get_save_attendance_official_misc_team_data(game_id):
     """
     try:
         # Get data
-        bss_score_data = bss_data.BoxScoreSummaryV2(game_id=game_id)
+        bss_score_data = boxscoresummaryv2.BoxScoreSummaryV2(game_id=game_id)
         bss_score_data = bss_score_data.get_data_frames()
         # Combine team stats
         hustle_stats = bss_score_data[1]
@@ -166,9 +207,9 @@ def get_save_attendance_official_misc_team_data(game_id):
         # @TODO come back and look at think suppose to be series stats but weird
         #print(bss_score_data[7].to_string())
         # Upload data to database
-        print(officials.to_string())
-        print(attendance.to_string())
-        print(misc_stats.to_string())
+        #print(officials.to_string())
+        #print(attendance.to_string())
+        #print(misc_stats.to_string())
         db.upload_df_to_postgres(officials, "officials", False)
         db.upload_df_to_postgres(attendance, "attendance", False)
         db.upload_df_to_postgres(misc_stats, "misc_team_stats", False)
@@ -217,7 +258,7 @@ def get_save_league_schedule_team_stats(year):
              "FT_PCT", "OREB", "DREB","REB", "AST", "STL", "BLK", "TOV", "PF", "PTS", "PLUS_MINUS"]
 
 
-    league_data = l_data.LeagueGameLog(season=year)
+    league_data = leaguegamelog.LeagueGameLog(season=year)
     league_data = league_data.get_data_frames()[0]
 
     team_data = league_data[team_stats_cols]

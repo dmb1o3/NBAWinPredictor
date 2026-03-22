@@ -1,4 +1,4 @@
-nba_api~=1.7.0
+nba_api
 urllib3==1.26.19
 pandas~=2.2.1
 numpy~=1.26.4
