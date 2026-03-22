@@ -164,58 +164,49 @@ CREATE TABLE adv_player_stats (
 
 officials_table = """
 CREATE TABLE officials (
-    "GAME_ID" char(10),
-    "OFFICIAL_ID" varchar(50),
-    "FIRST_NAME" varchar(50),
-    "LAST_NAME" varchar(50),
-    "JERSEY_NUM" varchar(50),
+    "game_id" char(10),
+    "referee_id" INT,
+    "name" varchar(50),
+    "jersey_num" INT,
     
-    PRIMARY KEY ("GAME_ID", "OFFICIAL_ID"),
-    FOREIGN KEY ("GAME_ID") REFERENCES schedule("game_id")
+    PRIMARY KEY ("game_id", "referee_id"),
+    FOREIGN KEY ("game_id") REFERENCES schedule("game_id")
 );
 """
 
 attendance_table = """
 CREATE TABLE attendance (
-    "GAME_ID" char(10),
-    "ATTENDANCE" int,
+    "game_id" char(10),
+    "arena_id" INT,
+    "arena_city" VARCHAR(50),
+    "arena_state" CHAR(2),
+    "arena_time_zone" VARCHAR(50),
+    "attendance" int,
+    "sellout" int,
 
-    PRIMARY KEY ("GAME_ID"),
-    FOREIGN KEY ("GAME_ID") REFERENCES schedule("game_id")
+    PRIMARY KEY ("game_id"),
+    FOREIGN KEY ("game_id") REFERENCES schedule("game_id")
 );
 """
 
 misc_team_stats_table = """
 CREATE TABLE misc_team_stats (
-    "GAME_ID" char(10),
-    "TEAM_ID" char(10),
-    "PTS_PAINT" int,
-    "PTS_2ND_CHANCE" int,
-    "PTS_FB" int,
-    "LARGEST_LEAD" int,
-    "LEAD_CHANGES" int,
-    "TIMES_TIED" int,
-    "TEAM_TURNOVERS" int,
-    "TOTAL_TURNOVERS" int,
-    "TEAM_REBOUNDS" int,
-    "PTS_OFF_TO" int,
-    "TEAM_WINS_LOSSES" varchar(50),
-    "PTS_QTR1" int,
-    "PTS_QTR2" int,
-    "PTS_QTR3" int,
-    "PTS_QTR4" int,
-    "PTS_OT1" int,
-    "PTS_OT2" int,
-    "PTS_OT3" int,
-    "PTS_OT4" int,
-    "PTS_OT5" int,
-    "PTS_OT6" int,
-    "PTS_OT7" int,
-    "PTS_OT8" int,
-    "PTS_OT9" int,
-    "PTS_OT10" int,    
+    "game_id" char(10),
+    "team_id" char(10),
+    "points_in_the_paint" int,
+    "points_second_chance" int,
+    "points_fast_break" int,
+    "biggest_lead" int,
+    "lead_changes" int,
+    "times_tied" int,
+    "biggest_scoring_run" int,
+    "points_from_turnovers" int,
+    "period1_score" int,
+    "period2_score" int,
+    "period3_score" int,
+    "period4_score" int,
         
-    PRIMARY KEY ("GAME_ID", "TEAM_ID"),
-    FOREIGN KEY ("GAME_ID") REFERENCES schedule("game_id")
+    PRIMARY KEY ("game_id", "team_id"),
+    FOREIGN KEY ("game_id") REFERENCES schedule("game_id")
 );
 """

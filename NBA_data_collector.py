@@ -1,7 +1,8 @@
-from nba_api.stats.endpoints import boxscoreadvancedv2, boxscoresummaryv2
+from nba_api.stats.endpoints import boxscoresummaryv2
 from nba_api.stats.endpoints.boxscoretraditionalv3 import BoxScoreTraditionalV3
-from nba_api.stats.endpoints.leaguegamelog import LeagueGameLog
 from nba_api.stats.endpoints.boxscoreadvancedv3 import BoxScoreAdvancedV3
+from nba_api.stats.endpoints.boxscoresummaryv3 import BoxScoreSummaryV3
+from nba_api.stats.endpoints.leaguegamelog import LeagueGameLog
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from SQL import db_manager as db, SQL_data_collector as dc
 from threading import Lock
@@ -13,9 +14,9 @@ import re
 
 
 # How many threads to use when downloading individual game data from NBA API
-NUM_THREADS = 3 # If put above 4 way more likely for threads to timeout
+NUM_THREADS = 1 # If put above 4 way more likely for threads to timeout
 # Max amount of times to retry download
-MAX_DOWNLOAD_ATTEMPTS = 5
+MAX_DOWNLOAD_ATTEMPTS = 0
 # Max amount of time a thread will wait
 WAIT_MAX = 30000 # In milliseconds
 # If at 1000 1s, 2s, 4s, 8s ...
@@ -201,29 +202,36 @@ def get_save_attendance_official_misc_team_data(game_id):
     """
     try:
         # Get data
-        bss_score_data = boxscoresummaryv2.BoxScoreSummaryV2(game_id=game_id)
+        bss_score_data = BoxScoreSummaryV3(game_id=game_id)
         bss_score_data = bss_score_data.get_data_frames()
+        i = 0
+        for df in bss_score_data:
+            df.to_csv(f"./{i}.csv", index=False)
+            i = i + 1
         # Combine team stats
-        hustle_stats = bss_score_data[1]
-        pts_per_qtr = bss_score_data[5]
-        misc_stats = pd.merge(hustle_stats, pts_per_qtr, on=["TEAM_ID"])
-        misc_stats["GAME_ID"] = game_id
-        misc_stats = misc_stats.drop(["GAME_DATE_EST", "GAME_SEQUENCE", "LEAGUE_ID", "PTS", "TEAM_NICKNAME",
-                                      "TEAM_CITY_NAME", "TEAM_ABBREVIATION_y", "TEAM_ABBREVIATION_x", "TEAM_CITY"], axis=1)
+        hustle_stats = bss_score_data[7][["gameId", "teamId", "pointsInThePaint", "pointsSecondChance", "pointsFastBreak",
+                                          "biggestLead", "leadChanges", "timesTied", "biggestScoringRun", "pointsFromTurnovers"]]
+        hustle_stats = hustle_stats.rename(columns={col: api_column_rename(col) for col in hustle_stats.columns})
+        pts_per_qtr = bss_score_data[4][["gameId", "teamId", "period1Score", "period2Score", "period3Score", "period4Score"]]
+        pts_per_qtr = pts_per_qtr.rename(columns={col: api_column_rename(col) for col in pts_per_qtr.columns})
+
+        misc_stats = pd.merge(hustle_stats, pts_per_qtr, on=["game_id","team_id"])
+        misc_stats.to_csv(f"./misc_team_stats.csv", index=False)
         # Handle stats for referees
-        officials = bss_score_data[2]
-        officials["GAME_ID"] = game_id
+        officials = bss_score_data[3][["gameId", "personId", "name", "jerseyNum"]]
+        officials = officials.rename(columns={"personId":"referee_id"})
+        officials = officials.rename(columns={col: api_column_rename(col) for col in officials.columns})
         # Handle Attendance
-        attendance = bss_score_data[4][["ATTENDANCE"]].copy() # Copy keeps as dataframe instead of slice
-        attendance["GAME_ID"] = game_id
-        # @TODO come back and look at think suppose to be series stats but weird
-        #print(bss_score_data[7].to_string())
+        attendance = bss_score_data[0][["gameId", "attendance", 'sellout']]
+        attendance = attendance.rename(columns={col: api_column_rename(col) for col in attendance.columns})
+
+        arena = bss_score_data[2][["gameId", "arenaId", "arenaCity", "arenaState", "arenaTimezone"]]
+        arena = arena.rename(columns={col: api_column_rename(col) for col in arena.columns})
+        arena_attendance = pd.merge(arena, attendance, on=["game_id"])
+
         # Upload data to database
-        #print(officials.to_string())
-        #print(attendance.to_string())
-        #print(misc_stats.to_string())
         db.upload_df_to_postgres(officials, "officials", False)
-        db.upload_df_to_postgres(attendance, "attendance", False)
+        db.upload_df_to_postgres(arena_attendance, "attendance", False)
         db.upload_df_to_postgres(misc_stats, "misc_team_stats", False)
 
     except Exception as e:
@@ -416,6 +424,4 @@ def menu_options():
 
 
 if __name__ == "__main__":
-    #get_save_box_score_data("0022401184")
-    #get_save_attendance_official_misc_team_data("0022401161")
     menu_options()
