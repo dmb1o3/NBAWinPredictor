@@ -180,7 +180,7 @@ CREATE TABLE attendance (
     "arena_id" INT,
     "arena_city" VARCHAR(50),
     "arena_state" CHAR(2),
-    "arena_time_zone" VARCHAR(50),
+    "arena_timezone" VARCHAR(50),
     "attendance" int,
     "sellout" int,
 

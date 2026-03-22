@@ -53,17 +53,17 @@ def get_missing_game_data():
         WHERE NOT EXISTS (
             SELECT 1
             FROM attendance a
-            WHERE s.game_id = a."GAME_ID"
+            WHERE s.game_id = a.game_id
         )
         OR NOT EXISTS (
             SELECT 1
             FROM officials o
-            WHERE s.game_id = o."GAME_ID"
+            WHERE s.game_id = o.game_id
         )
         OR NOT EXISTS (
             SELECT 1
             FROM misc_team_stats mts
-            WHERE s.game_id = mts."GAME_ID"
+            WHERE s.game_id = mts.game_id
         );
         """
 
