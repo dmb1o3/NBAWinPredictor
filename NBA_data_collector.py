@@ -1,6 +1,7 @@
 from nba_api.stats.endpoints import boxscoreadvancedv2, boxscoresummaryv2
 from nba_api.stats.endpoints.boxscoretraditionalv3 import BoxScoreTraditionalV3
 from nba_api.stats.endpoints.leaguegamelog import LeagueGameLog
+from nba_api.stats.endpoints.boxscoreadvancedv3 import BoxScoreAdvancedV3
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from SQL import db_manager as db, SQL_data_collector as dc
 from threading import Lock
@@ -118,15 +119,25 @@ def minute_sec_decompress(time_str):
        wait_exponential_max=WAIT_MAX, wait_jitter_max=MAX_JITTER)
 def get_save_advanced_box_score_data(game_id):
     try:
-        b_score_data = boxscoreadvancedv2.BoxScoreAdvancedV2(game_id=game_id)
+        b_score_data = BoxScoreAdvancedV3(game_id=game_id)
         player_data = b_score_data.get_data_frames()[0]
         team_data = b_score_data.get_data_frames()[1]
 
+        # Drop columns we do not need
+        player_data = player_data.drop(columns=["teamCity", "teamName", "teamTricode", "teamSlug", "firstName", "familyName", "nameI", "playerSlug",
+                          "comment", "jerseyNum"]
+                         )
+        team_data = team_data.drop(columns=["teamCity", "teamName", "teamTricode", "teamSlug"])
+
+        player_data = player_data.rename(columns={col: api_column_rename(col) for col in player_data.columns})
+        player_data = player_data.rename(columns={"person_id":"player_id", "position":"starting_position","pie":"PIE", "pace_per40":"pace_per_40"})
+
+        team_data = team_data.rename(columns={col: api_column_rename(col) for col in team_data.columns})
+        team_data = team_data.rename(columns={"pie":"PIE", "pace_per40":"pace_per_40"})
+
         # Change minutes from 36.00000:35 to 36:35
-        player_data = player_data.fillna(0)
-        player_data["MIN"] = player_data["MIN"].apply(minute_sec_decompress)
-        team_data = team_data.fillna(0)
-        team_data["MIN"] = team_data["MIN"].apply(minute_sec_decompress)
+        player_data["minutes"] = player_data["minutes"].apply(minute_sec_decompress)
+        team_data["minutes"] = team_data["minutes"].apply(minute_sec_decompress)
 
         # Upload player and team data to database
         db.upload_df_to_postgres(player_data, "adv_player_stats", False)

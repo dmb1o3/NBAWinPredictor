@@ -31,39 +31,39 @@ def get_missing_game_data():
     results["player_stats"]  = db.run_sql_query(query)[0]
 
     query = """
-    SELECT DISTINCT "GAME_ID"
+    SELECT DISTINCT game_id
     FROM schedule s
     WHERE NOT EXISTS (
         SELECT 1
         FROM adv_player_stats aps
-        WHERE s."GAME_ID" = aps."GAME_ID"
+        WHERE s.game_id = aps.game_id
     )
     OR NOT EXISTS (
         SELECT 1
         FROM adv_team_stats ats
-        WHERE s."GAME_ID" = ats."GAME_ID"
+        WHERE s.game_id = ats.game_id
     );
     """
 
     results["adv_stats"] = db.run_sql_query(query)[0]
 
     query = """
-        SELECT DISTINCT "GAME_ID"
+        SELECT DISTINCT game_id
         FROM schedule s
         WHERE NOT EXISTS (
             SELECT 1
             FROM attendance a
-            WHERE s."GAME_ID" = a."GAME_ID"
+            WHERE s.game_id = a."GAME_ID"
         )
         OR NOT EXISTS (
             SELECT 1
             FROM officials o
-            WHERE s."GAME_ID" = o."GAME_ID"
+            WHERE s.game_id = o."GAME_ID"
         )
         OR NOT EXISTS (
             SELECT 1
             FROM misc_team_stats mts
-            WHERE s."GAME_ID" = mts."GAME_ID"
+            WHERE s.game_id = mts."GAME_ID"
         );
         """
 
@@ -116,7 +116,7 @@ def get_adv_team_stats_by_year(year, team_abbrev):
     query = f"""
     SELECT adv_team_stats.*
     FROM adv_team_stats
-    join schedule on schedule."GAME_ID" = adv_team_stats."GAME_ID"
+    join schedule on schedule.game_id = adv_team_stats.game_id
     WHERE RIGHT(schedule."SEASON_ID", 4) = '{year}'
     AND adv_team_stats."TEAM_ABBREVIATION" = '{team_abbrev}'
     ORDER BY schedule."GAME_DATE" ASC
@@ -129,7 +129,7 @@ def get_team_stats_by_year(year, team_abbrev):
     query = f"""
     SELECT team_stats.*
     FROM team_stats
-    join schedule on schedule."GAME_ID" = team_stats."GAME_ID"
+    join schedule on schedule.game_id = team_stats.game_id
     WHERE RIGHT(schedule."SEASON_ID", 4) = '{year}'
     AND team_stats."TEAM_ABBREVIATION" = '{team_abbrev}'
     ORDER BY schedule."GAME_DATE" ASC
@@ -141,7 +141,7 @@ def get_team_stats_by_year(year, team_abbrev):
 def get_game_ids_home_away_team_ids(year):
     year = "2" + year
     query = f"""
-    SELECT "GAME_ID", "HOME_TEAM_ID", "AWAY_TEAM_ID"
+    SELECT game_id, "HOME_TEAM_ID", "AWAY_TEAM_ID"
     FROM public.schedule
     WHERE "SEASON_ID" = '{year}'
     ORDER BY "GAME_DATE" ASC
@@ -154,13 +154,13 @@ def get_game_ids_home_away_team_ids(year):
 
 def get_home_team_won(game_ids):
     query = """
-    SELECT "GAME_ID", 
+    SELECT game_id, 
     CASE
 	    WHEN "HOME_TEAM_ABBREVIATION" = "WINNER" THEN 1
 	    ELSE 0
     END AS "HOME_TEAM_WON"
     FROM schedule
-    WHERE "GAME_ID" = ANY(%(game_ids)s)
+    WHERE game_id = ANY(%(game_ids)s)
     """
     home_team_win, cols = db.run_sql_query_params(query, {"game_ids":game_ids})
     home_team_win = pd.DataFrame(home_team_win, columns=cols)
@@ -171,17 +171,17 @@ def get_home_team_won(game_ids):
 def get_home_away_points(game_ids):
     query = """
     SELECT
-        s."GAME_ID",
+        s.game_id,
         home."PTS" AS "HOME_TEAM_PTS",
         away."PTS" as "AWAY_TEAM_PTS"
     FROM schedule s
     JOIN team_stats home
-        ON s."GAME_ID" = home."GAME_ID"
+        ON s.game_id = home.game_id
         AND s."HOME_TEAM_ABBREVIATION" = home."TEAM_ABBREVIATION"
     JOIN team_stats away
-        ON s."GAME_ID" = away."GAME_ID"
+        ON s.game_id = away.game_id
         AND s."AWAY_TEAM_ABBREVIATION" = away."TEAM_ABBREVIATION"
-    WHERE s."GAME_ID" = ANY(%(game_ids)s)
+    WHERE s.game_id = ANY(%(game_ids)s)
     """
     points_data, cols = db.run_sql_query_params(query, {"game_ids":game_ids})
     points_data = pd.DataFrame(points_data, columns=cols)
@@ -190,9 +190,9 @@ def get_home_away_points(game_ids):
 
 def get_home_team_abrev(game_ids):
     query = """
-    SELECT s."GAME_ID", s."HOME_TEAM_ABBREVIATION"
+    SELECT s.game_id, s."HOME_TEAM_ABBREVIATION"
     FROM schedule s
-    WHERE s."GAME_ID" = ANY(%(game_ids)s)
+    WHERE s.game_id = ANY(%(game_ids)s)
     """
     home_team_abrev, cols = db.run_sql_query_params(query, {"game_ids":game_ids})
     home_team_abrev = pd.DataFrame(home_team_abrev, columns=cols)
@@ -243,16 +243,16 @@ def get_player_stats_year_team(year, team):
     SELECT ps.*
     FROM public.player_stats ps
     -- JOIN so we have season id to know what year 
-    JOIN schedule s on ps."GAME_ID" = s."GAME_ID"
+    JOIN schedule s on ps.game_id = s.game_id
     WHERE s."SEASON_ID" = '{year}'
     AND ps."PLAYER_ID" in (
 	    SELECT DISTINCT ps2."PLAYER_ID"
 	    FROM public.player_stats ps2
-	    JOIN schedule s2 on s2."GAME_ID" = ps2."GAME_ID"
+	    JOIN schedule s2 on s2.game_id = ps2.game_id
 	    WHERE s2."SEASON_ID" = '{year}'
 	    AND ps2."TEAM_ABBREVIATION" = '{team}'
     )
-    ORDER BY "GAME_ID" ASC, "PLAYER_ID" ASC 
+    ORDER BY game_id ASC, "PLAYER_ID" ASC 
     """
 
     player_stats, column_names = db.run_sql_query(query)
