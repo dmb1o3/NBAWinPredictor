@@ -1,52 +1,40 @@
 # Table Definitions
 schedule_table = """
 CREATE TABLE schedule (
-    "SEASON_ID" char(5),
-    "GAME_ID" char(10) PRIMARY KEY,
-    "GAME_DATE" date,
-    "MATCHUP" char(11),
-    "HOME_TEAM_NAME" varchar(50),
-    "HOME_TEAM_ABBREVIATION" char(3),
-    "HOME_TEAM_ID" char(10),
-    "AWAY_TEAM_NAME" varchar(50),
-    "AWAY_TEAM_ABBREVIATION" char(3),
-    "AWAY_TEAM_ID" char(10),
-    "WINNER" char(3),
-    "VIDEO_AVAILABLE" int,
+    "season_id" char(5),
+    "game_id" char(10) PRIMARY KEY,
+    "game_date" date,
+    "home_team_id" char(10),
+    "away_team_id" char(10),
+    "video_available" int,
 
-    UNIQUE ("GAME_ID")
+    UNIQUE ("game_id")
 );
 """
 
 team_stats_table = """
 CREATE TABLE team_stats (
-    "GAME_ID" char(10),
-    "TEAM_ID" char(10),
-    "TEAM_NAME"  varchar(50),
-    "TEAM_ABBREVIATION" char(3),
-    "MIN" int,
-    "FGM" int,
-    "FGA" int,
-    "FG_PCT" float,
-    "FG3M" int,
-    "FG3A" int,
-    "FG3_PCT" float,
-    "FTM" int,
-    "FTA" int,
-    "FT_PCT" float,
-    "OREB" int,
-    "DREB" int,
-    "REB" int,
-    "AST" int,
-    "STL" int,
-    "BLK" int,
-    "TOV" int,
-    "PF" int,
-    "PTS" int,
-    "PLUS_MINUS" int,
+    "game_id" char(10),
+    "team_id" char(10),
+    "minutes" INT,
+    "field_goals_made" INT,
+    "field_goals_attempted" INT,
+    "three_pointers_made" INT,
+    "three_pointers_attempted" INT,
+    "free_throws_made" INT,
+    "free_throws_attempted" INT,
+    "offensive_rebounds" INT,
+    "defensive_rebounds" INT,
+    "assists" INT,
+    "steals" INT,
+    "blocks" INT,
+    "turnovers" INT,
+    "personal_fouls" INT,
+    "points" INT,                                   
+    "plus_minus" int,                   
 
-    PRIMARY KEY ("GAME_ID", "TEAM_ID"),
-    FOREIGN KEY ("GAME_ID") REFERENCES schedule("GAME_ID")
+    PRIMARY KEY ("game_id", "team_id"),
+    FOREIGN KEY ("game_id") REFERENCES schedule("game_id")
 );
 """
 
@@ -72,7 +60,7 @@ CREATE TABLE team_starter_vs_bench_stats (
     "starter_bench" VARCHAR(8),
     
     PRIMARY KEY ("game_id", "team_id", "starter_bench"),
-    FOREIGN KEY ("game_id") REFERENCES schedule("GAME_ID")
+    FOREIGN KEY ("game_id") REFERENCES schedule("game_id")
 );
 """
 
@@ -109,7 +97,7 @@ CREATE TABLE adv_team_stats (
     "PIE"  float,
 
     PRIMARY KEY ("GAME_ID", "TEAM_ID"),
-    FOREIGN KEY ("GAME_ID") REFERENCES schedule("GAME_ID")
+    FOREIGN KEY ("GAME_ID") REFERENCES schedule("game_id")
 );
 """
 
@@ -138,7 +126,7 @@ CREATE TABLE player_stats (
     "plus_minus" int,
 
     PRIMARY KEY ("game_id", "player_id"),
-    FOREIGN KEY ("game_id") REFERENCES schedule("GAME_ID")
+    FOREIGN KEY ("game_id") REFERENCES schedule("game_id")
 );
 """
 
@@ -178,7 +166,7 @@ CREATE TABLE adv_player_stats (
     "PIE"  float,
 
     PRIMARY KEY ("GAME_ID", "PLAYER_ID"),
-    FOREIGN KEY ("GAME_ID") REFERENCES schedule("GAME_ID")
+    FOREIGN KEY ("GAME_ID") REFERENCES schedule("game_id")
 );
 """
 
@@ -191,7 +179,7 @@ CREATE TABLE officials (
     "JERSEY_NUM" varchar(50),
     
     PRIMARY KEY ("GAME_ID", "OFFICIAL_ID"),
-    FOREIGN KEY ("GAME_ID") REFERENCES schedule("GAME_ID")
+    FOREIGN KEY ("GAME_ID") REFERENCES schedule("game_id")
 );
 """
 
@@ -201,7 +189,7 @@ CREATE TABLE attendance (
     "ATTENDANCE" int,
 
     PRIMARY KEY ("GAME_ID"),
-    FOREIGN KEY ("GAME_ID") REFERENCES schedule("GAME_ID")
+    FOREIGN KEY ("GAME_ID") REFERENCES schedule("game_id")
 );
 """
 
@@ -236,6 +224,6 @@ CREATE TABLE misc_team_stats (
     "PTS_OT10" int,    
         
     PRIMARY KEY ("GAME_ID", "TEAM_ID"),
-    FOREIGN KEY ("GAME_ID") REFERENCES schedule("GAME_ID")
+    FOREIGN KEY ("GAME_ID") REFERENCES schedule("game_id")
 );
 """

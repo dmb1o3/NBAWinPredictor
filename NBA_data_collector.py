@@ -1,5 +1,6 @@
-from nba_api.stats.endpoints import leaguegamelog, boxscoretraditionalv2, boxscoreadvancedv2, boxscoresummaryv2
+from nba_api.stats.endpoints import boxscoreadvancedv2, boxscoresummaryv2
 from nba_api.stats.endpoints.boxscoretraditionalv3 import BoxScoreTraditionalV3
+from nba_api.stats.endpoints.leaguegamelog import LeagueGameLog
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from SQL import db_manager as db, SQL_data_collector as dc
 from threading import Lock
@@ -258,7 +259,7 @@ def get_save_league_schedule_team_stats(year):
              "FT_PCT", "OREB", "DREB","REB", "AST", "STL", "BLK", "TOV", "PF", "PTS", "PLUS_MINUS"]
 
 
-    league_data = leaguegamelog.LeagueGameLog(season=year)
+    league_data = LeagueGameLog(season=year)
     league_data = league_data.get_data_frames()[0]
 
     team_data = league_data[team_stats_cols]
@@ -269,11 +270,8 @@ def get_save_league_schedule_team_stats(year):
     # Merge DataFrames on 'GAME_ID'
     league_data = pd.merge(league_data, df_at, on='GAME_ID', how='left')
 
-    # Figure out who won
-    league_data["WL"] = np.where(league_data["WL"] == "W", league_data["MATCHUP"].str.slice(start=0, stop=3),
-                                 league_data["MATCHUP"].str.slice(start=-3))
     # Rename column to make it easier to understand
-    league_data = league_data.rename(columns={"WL": "WINNER", "TEAM_ID": "HOME_TEAM_ID", "TEAM_NAME": "HOME_TEAM_NAME",
+    league_data = league_data.rename(columns={"TEAM_ID": "HOME_TEAM_ID", "TEAM_NAME": "HOME_TEAM_NAME",
                                               "TEAM_ABBREVIATION": "HOME_TEAM_ABBREVIATION"})
 
 
@@ -284,12 +282,26 @@ def get_save_league_schedule_team_stats(year):
     league_data.drop(team_stats_cols[4:], axis=1, inplace=True)
 
     # Change order so it's more readable for humans
-    desired_order = ["SEASON_ID", "GAME_ID", "GAME_DATE", "MATCHUP", "HOME_TEAM_NAME", "HOME_TEAM_ABBREVIATION",
-                     "HOME_TEAM_ID", "AWAY_TEAM_NAME", "AWAY_TEAM_ABBREVIATION", "AWAY_TEAM_ID", "WINNER","VIDEO_AVAILABLE"]
+    desired_order = ["SEASON_ID", "GAME_ID", "GAME_DATE", "HOME_TEAM_ID", "AWAY_TEAM_ID","VIDEO_AVAILABLE"]
+    league_data = keep_columns(league_data, desired_order)
     league_data = league_data.reindex(columns=desired_order)
 
+    # Rename for V3
+    league_data = league_data.rename(columns={col: api_column_rename(col) for col in league_data.columns})
+    team_data = team_data[["GAME_ID", "TEAM_ID", "MIN", "FGM", "FGA", "FG3M", "FG3A", "FTM", "FTA", "OREB", "DREB", "AST", "STL", "BLK",
+                          "TOV", "PF", "PTS", "PLUS_MINUS"]]
+    team_data = team_data.rename(columns={"MIN":"minutes", "FGM":"field_goals_made", "FGA":"field_goals_attempted",
+                                  "FG3M":"three_pointers_made", "FG3A":"three_pointers_attempted", "FTM":"free_throws_made",
+                                  "FTA":"free_throws_attempted",  "OREB":"offensive_rebounds", "DREB":"defensive_rebounds",
+                                  "AST":"assists", "STL":"steals", "BLK":"blocks", "TOV":"turnovers", "PF":"personal_fouls",
+                                  "PTS":"points", "PLUS_MINUS":"plus_minus"}
+                                 )
+    team_data = team_data.rename(columns={col: api_column_rename(col) for col in team_data.columns})
 
-    return league_data, team_data
+    db.upload_df_to_postgres(league_data, "schedule", True)
+    db.upload_df_to_postgres(team_data, "team_stats", False)
+
+    return league_data
 
 
 def check_save_missing_game_stats():
@@ -333,13 +345,9 @@ def check_save_missing_game_stats():
 
 def get_save_data_for_year(year):
     # Download schedule from NBA API
-    schedule, team_data = get_save_league_schedule_team_stats(year)
-    # Upload schedule and team data for season to database
-    db.upload_df_to_postgres(schedule, "schedule", True)
-    db.upload_df_to_postgres(team_data, "team_stats", False)
-
+    schedule = get_save_league_schedule_team_stats(year)
     # Use schedule to get games
-    game_ids = list(schedule["GAME_ID"])
+    game_ids = list(schedule["game_id"])
 
     # Download data for each game and save it to database
     print("Starting download of games for " + year)

@@ -10,7 +10,7 @@ def does_schedule_for_year_exist(year):
     SELECT EXISTS(
         SELECT 1
         FROM schedule s
-        WHERE RIGHT("SEASON_ID", 4) = %(year)s
+        WHERE RIGHT(season_id, 4) = %(year)s
     );
     """
     return db.run_sql_query_params(query, {"year":year})[0][0][0]
@@ -20,12 +20,12 @@ def get_missing_game_data():
     results = {}
     # Query to get game ids and season ids for all game stats missing from schedules in schedule table
     query = """
-    SELECT DISTINCT "GAME_ID"
+    SELECT DISTINCT game_id
     FROM schedule s
     WHERE NOT EXISTS (
         SELECT 1
         FROM player_stats ps
-        WHERE s."GAME_ID" = ps."game_id"
+        WHERE s.game_id = ps.game_id
     );
     """
     results["player_stats"]  = db.run_sql_query(query)[0]
