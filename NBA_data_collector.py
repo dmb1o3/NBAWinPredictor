@@ -1,4 +1,3 @@
-from nba_api.stats.endpoints import boxscoresummaryv2
 from nba_api.stats.endpoints.boxscoretraditionalv3 import BoxScoreTraditionalV3
 from nba_api.stats.endpoints.boxscoreadvancedv3 import BoxScoreAdvancedV3
 from nba_api.stats.endpoints.boxscoresummaryv3 import BoxScoreSummaryV3
@@ -98,6 +97,16 @@ def keep_columns(df, columns_to_keep):
     return df[[col for col in columns_to_keep if col in df.columns]]
 
 
+def parse_minutes(val):
+    try:
+        if isinstance(val, str) and ':' in val:
+            parts = val.split(':')
+            return int(parts[0].split('.')[0]) * 60 + int(parts[1])
+        return 0
+    except:
+        return 0
+
+
 def minute_sec_decompress(time_str):
     time_str = str(time_str)
     if time_str == "":
@@ -129,6 +138,15 @@ def get_save_advanced_box_score_data(game_id):
                           "comment", "jerseyNum"]
                          )
         team_data = team_data.drop(columns=["teamCity", "teamName", "teamTricode", "teamSlug"])
+
+        # Somtimes player_data has dupes so remove based on player_id and keep one with higher minutes
+        player_data['_minutes_seconds'] = player_data['minutes'].apply(parse_minutes)
+        player_data = (player_data
+                       .sort_values('_minutes_seconds', ascending=False)
+                       .drop_duplicates(subset=['gameId', 'personId'], keep='first')
+                       .drop(columns=['_minutes_seconds'])
+                       .reset_index(drop=True)
+                       )
 
         player_data = player_data.rename(columns={col: api_column_rename(col) for col in player_data.columns})
         player_data = player_data.rename(columns={"person_id":"player_id", "position":"starting_position","pie":"PIE", "pace_per40":"pace_per_40"})
