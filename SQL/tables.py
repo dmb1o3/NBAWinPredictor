@@ -7,8 +7,7 @@ CREATE TABLE schedule (
     "home_team_id" char(10),
     "away_team_id" char(10),
     "video_available" int,
-
-    UNIQUE ("game_id")
+    "neutral_site" boolean
 );
 """
 
@@ -91,7 +90,7 @@ CREATE TABLE adv_team_stats (
     "pace" float,  
     "pace_per_40" float,  
     "possessions" int,
-    "PIE"  float,
+    "pie"  float,
 
     PRIMARY KEY ("game_id", "team_id"),
     FOREIGN KEY ("game_id") REFERENCES schedule("game_id")
@@ -155,7 +154,7 @@ CREATE TABLE adv_player_stats (
     "pace" float,  
     "pace_per_40" float,  
     "possessions" int,
-    "PIE"  float,
+    "pie"  float,
 
     PRIMARY KEY ("game_id", "player_id"),
     FOREIGN KEY ("game_id") REFERENCES schedule("game_id")

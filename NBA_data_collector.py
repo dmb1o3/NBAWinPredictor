@@ -12,15 +12,15 @@ import time
 import re
 
 
+TIMEOUT = 60
 # How many threads to use when downloading individual game data from NBA API
-NUM_THREADS = 3 # If put above 4 way more likely for threads to timeout
+NUM_THREADS = 6 # If put above 4 way more likely for threads to timeout
 # Max amount of times to retry download
-MAX_DOWNLOAD_ATTEMPTS = 5
+MAX_DOWNLOAD_ATTEMPTS = 10
 # Max amount of time a thread will wait
-WAIT_MAX = 50000 # In milliseconds
+WAIT_MAX = 30000 # In milliseconds
 # If at 1000 1s, 2s, 4s, 8s ...
 WAIT_MULTIPLIER = 1000 # In milliseconds
-DELAY = 5000 # In milliseconds
 # Max jitter
 MAX_JITTER = 2000 # In milliseconds
 # Used to prevent duplicate request of data from NBA API
@@ -129,7 +129,7 @@ def minute_sec_decompress(time_str):
        wait_exponential_max=WAIT_MAX, wait_jitter_max=MAX_JITTER)
 def get_save_advanced_box_score_data(game_id):
     try:
-        b_score_data = BoxScoreAdvancedV3(game_id=game_id)
+        b_score_data = BoxScoreAdvancedV3(game_id=game_id, timeout=TIMEOUT)
         player_data = b_score_data.get_data_frames()[0]
         team_data = b_score_data.get_data_frames()[1]
 
@@ -170,7 +170,7 @@ def get_save_advanced_box_score_data(game_id):
        wait_exponential_max=WAIT_MAX, wait_jitter_max=MAX_JITTER)
 def get_save_box_score_data(game_id):
     try:
-        b_score_data = BoxScoreTraditionalV3(game_id=game_id)
+        b_score_data = BoxScoreTraditionalV3(game_id=game_id, timeout=TIMEOUT)
         game_data = b_score_data.get_data_frames()[0]
         teams_starter_vs_bench = b_score_data.get_data_frames()[1]
 
@@ -220,7 +220,7 @@ def get_save_attendance_official_misc_team_data(game_id):
     """
     try:
         # Get data
-        bss_score_data = BoxScoreSummaryV3(game_id=game_id)
+        bss_score_data = BoxScoreSummaryV3(game_id=game_id, timeout=TIMEOUT)
         bss_score_data = bss_score_data.get_data_frames()
         i = 0
         for df in bss_score_data:
@@ -234,7 +234,6 @@ def get_save_attendance_official_misc_team_data(game_id):
         pts_per_qtr = pts_per_qtr.rename(columns={col: api_column_rename(col) for col in pts_per_qtr.columns})
 
         misc_stats = pd.merge(hustle_stats, pts_per_qtr, on=["game_id","team_id"])
-        misc_stats.to_csv(f"./misc_team_stats.csv", index=False)
         # Handle stats for referees
         officials = bss_score_data[3][["gameId", "personId", "name", "jerseyNum"]]
         officials = officials.rename(columns={"personId":"referee_id"})
@@ -288,8 +287,8 @@ def threaded_get_save_all_game_data(game_id, year):
         print(str(e) + " for " + str(game_id) + " in threaded_get_save_all_game_data")
 
 
-@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_exponential_multiplier=WAIT_MULTIPLIER,
-       wait_exponential_max=WAIT_MAX, wait_jitter_max=MAX_JITTER)
+#@retry(stop_max_attempt_number=MAX_DOWNLOAD_ATTEMPTS, wait_exponential_multiplier=WAIT_MULTIPLIER,
+#       wait_exponential_max=WAIT_MAX, wait_jitter_max=MAX_JITTER)
 def get_save_league_schedule_team_stats(year):
     team_stats_cols = ["GAME_ID", "TEAM_ID", "TEAM_NAME", "TEAM_ABBREVIATION", "MIN",
              "FGM", "FGA", "FG_PCT", "FG3M", "FG3A", "FG3_PCT", "FTM", "FTA",
@@ -310,16 +309,19 @@ def get_save_league_schedule_team_stats(year):
     # Rename column to make it easier to understand
     league_data = league_data.rename(columns={"TEAM_ID": "HOME_TEAM_ID", "TEAM_NAME": "HOME_TEAM_NAME",
                                               "TEAM_ABBREVIATION": "HOME_TEAM_ABBREVIATION"})
-
-
-    # Data set contains two instances for a single game, one for the home team and one for the away team
-    # here we only take matchups with vs. instead of @ meaning we take all home team copies game
-    league_data = league_data[league_data["MATCHUP"].str.contains("vs.", na=False)]
     league_data["GAME_DATE"] = pd.to_datetime(league_data["GAME_DATE"])
     league_data.drop(team_stats_cols[4:], axis=1, inplace=True)
+    # Data set contains two instances for a single game, one for the home team and one for the away team
+    # here we only take matchups with vs. instead of @ meaning we take all home team copies game
+    # HOWEVER now there are play in and international games on neutral courts so we add a flag by saving data
+    desired_order = ["SEASON_ID", "GAME_ID", "GAME_DATE", "HOME_TEAM_ID", "AWAY_TEAM_ID","VIDEO_AVAILABLE"]
+    neutral_league_data = league_data.copy()
+    neutral_league_data = keep_columns(neutral_league_data, desired_order)
+    neutral_league_data = neutral_league_data.reindex(columns=desired_order)
+    neutral_league_data = neutral_league_data.rename(columns={col: api_column_rename(col) for col in neutral_league_data.columns})
+    league_data = league_data[league_data["MATCHUP"].str.contains("vs.", na=False)]
 
     # Change order so it's more readable for humans
-    desired_order = ["SEASON_ID", "GAME_ID", "GAME_DATE", "HOME_TEAM_ID", "AWAY_TEAM_ID","VIDEO_AVAILABLE"]
     league_data = keep_columns(league_data, desired_order)
     league_data = league_data.reindex(columns=desired_order)
 
@@ -334,6 +336,16 @@ def get_save_league_schedule_team_stats(year):
                                   "PTS":"points", "PLUS_MINUS":"plus_minus"}
                                  )
     team_data = team_data.rename(columns={col: api_column_rename(col) for col in team_data.columns})
+
+    # Sometimes there are neutral site games i.e play in and international games
+    league_data["neutral_site"] = False
+    neutral_ids = set(team_data['game_id']) - set(league_data['game_id'])
+    if neutral_ids:
+        # Get neutral games by finding games that were dropped for having duplicate @ instead of vs.
+        neutral_league_data = neutral_league_data[neutral_league_data['home_team_id'] != neutral_league_data['away_team_id']]
+        neutral_games = neutral_league_data[neutral_league_data['game_id'].isin(neutral_ids)].drop_duplicates(subset='game_id', keep='first')
+        neutral_games["neutral_site"] = True
+        league_data = pd.concat([league_data, neutral_games])
 
     db.upload_df_to_postgres(league_data, "schedule", True)
     db.upload_df_to_postgres(team_data, "team_stats", False)
