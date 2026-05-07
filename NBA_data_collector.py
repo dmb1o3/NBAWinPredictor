@@ -2,12 +2,13 @@ from nba_api.stats.endpoints.boxscoretraditionalv3 import BoxScoreTraditionalV3
 from nba_api.stats.endpoints.boxscoreadvancedv3 import BoxScoreAdvancedV3
 from nba_api.stats.endpoints.boxscoresummaryv3 import BoxScoreSummaryV3
 from nba_api.stats.endpoints.leaguegamelog import LeagueGameLog
+from nba_api.stats.static.players import get_players
+from nba_api.stats.static.teams import get_teams
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from SQL import db_manager as db, SQL_data_collector as dc
 from threading import Lock
 from retrying import retry
 import pandas as pd
-import numpy as np
 import time
 import re
 
@@ -149,10 +150,10 @@ def get_save_advanced_box_score_data(game_id):
                        )
 
         player_data = player_data.rename(columns={col: api_column_rename(col) for col in player_data.columns})
-        player_data = player_data.rename(columns={"person_id":"player_id", "position":"starting_position","pie":"PIE", "pace_per40":"pace_per_40"})
+        player_data = player_data.rename(columns={"person_id":"player_id", "position":"starting_position", "pace_per40":"pace_per_40"})
 
         team_data = team_data.rename(columns={col: api_column_rename(col) for col in team_data.columns})
-        team_data = team_data.rename(columns={"pie":"PIE", "pace_per40":"pace_per_40"})
+        team_data = team_data.rename(columns={"pace_per40":"pace_per_40"})
 
         # Change minutes from 36.00000:35 to 36:35
         player_data["minutes"] = player_data["minutes"].apply(minute_sec_decompress)
@@ -423,12 +424,41 @@ def invalid_option(options_length):
     print("\nInvalid option must be a number from 1 - " + str(options_length - 1) + " or q/Q to exit\n")
 
 
+def get_save_player_mapping():
+    # Pull player mapping from static NBA API data
+    players = get_players()
+    df = pd.DataFrame(players)
+
+    # Rename id to player_id for more clarity
+    df.rename({"id": "player_id"}, axis=1, inplace=True)
+
+    db.upload_df_to_postgres(df, "d_player")
+
+
+def get_save_team_mapping():
+    # Pull player mapping from static NBA API data
+    teams = get_teams()
+    df = pd.DataFrame(teams)
+
+    # Rename id to team_id for clarity
+    df.rename({"id": "team_id"}, axis=1, inplace=True)
+
+    db.upload_df_to_postgres(df, "d_team")
+
+
+def set_up_db():
+    # Get and upload mapping data that we get from static files
+    get_save_player_mapping()
+    get_save_team_mapping()
+    # Run set up for other tables we will add data to as we pull from NBA api
+    db.init_database()
+
 def menu_options():
     # @TODO fix how we check for missing game data. If current year and more games are played since last saved. Will not save those games played
     options = {
         '1': set_up_year_function,
         '2': check_save_missing_game_stats,
-        '3': db.init_database,
+        '3': set_up_db,
         'q': exit,
     }
 
@@ -450,7 +480,6 @@ def menu_options():
             invalid_option(len(options))
 
         print("")
-
 
 
 if __name__ == "__main__":

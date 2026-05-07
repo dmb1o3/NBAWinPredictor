@@ -11,6 +11,28 @@ CREATE TABLE schedule (
 );
 """
 
+d_player_table = """
+CREATE TABLE d_player (
+    "player_id" INT PRIMARY KEY,
+    "full_name" TEXT,
+    "first_name" TEXT,
+    "last_name" TEXT,
+    "is_active" boolean
+);
+"""
+
+d_team_table = """
+CREATE TABLE d_team (
+    "team_id" INT PRIMARY KEY,
+    "full_name" TEXT,
+    "abbreviation" CHAR(3),
+    "nickname" TEXT,
+    "city" TEXT,
+    "state" TEXT,
+    "year_founded" INT
+);
+"""
+
 team_stats_table = """
 CREATE TABLE team_stats (
     "game_id" char(10),
